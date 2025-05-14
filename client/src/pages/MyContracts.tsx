@@ -160,6 +160,8 @@ const MyContracts = () => {
           )}
         </Button>
       </div>
+      
+      <SubscriptionBanner />
 
       {uploadMode ? (
         <Card className="mb-8">

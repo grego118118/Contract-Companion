@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import ChatInterface from "@/components/chat/ChatInterface";
 import PDFViewer from "@/components/ui/pdf-viewer";
+import SubscriptionBanner from "@/components/subscription/SubscriptionBanner";
 import { FileText, ChevronLeft } from "lucide-react";
 
 const ContractDetail = ({ params }: { params: { id: string } }) => {
@@ -90,6 +91,8 @@ const ContractDetail = ({ params }: { params: { id: string } }) => {
         </Button>
         <h1 className="text-2xl font-merriweather font-bold">{contract.name}</h1>
       </div>
+      
+      <SubscriptionBanner />
 
       <Tabs
         defaultValue="chat"

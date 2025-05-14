@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import BlogDetail from "@/components/blog/BlogDetail";
 import BlogCard from "@/components/blog/BlogCard";
+import SubscriptionBanner from "@/components/subscription/SubscriptionBanner";
 
 // Fallback blog post if API fails
 const FALLBACK_BLOG_POST = {

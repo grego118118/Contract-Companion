@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import BlogCard from "@/components/blog/BlogCard";
+import SubscriptionBanner from "@/components/subscription/SubscriptionBanner";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -119,6 +120,8 @@ const Blog = () => {
           arbitration wins that have improved working conditions and rights for
           members.
         </p>
+        
+        <SubscriptionBanner />
 
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="relative flex-grow">
