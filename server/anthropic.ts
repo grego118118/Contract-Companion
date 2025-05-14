@@ -7,6 +7,12 @@ const anthropic = new Anthropic({
 
 export async function analyzeContract(contractText: string): Promise<string> {
   try {
+    // Check if API key is available
+    if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'dummy-key-for-development') {
+      console.warn('ANTHROPIC_API_KEY not properly configured');
+      return "Contract uploaded successfully, but could not generate analysis due to missing API credentials.";
+    }
+    
     const prompt = `I'd like you to analyze this union contract and create a structured summary of its main components. 
     Focus on key sections like:
     - Term of agreement
@@ -26,15 +32,28 @@ export async function analyzeContract(contractText: string): Promise<string> {
       messages: [{ role: 'user', content: prompt }],
     });
 
-    return response.content[0].text;
+    // Handle response format safely
+    if (response.content && response.content.length > 0 && 'text' in response.content[0]) {
+      return response.content[0].text;
+    } else {
+      return "Analysis completed, but the response format was unexpected.";
+    }
   } catch (error) {
     console.error('Error analyzing contract:', error);
-    throw new Error('Failed to analyze contract with Anthropic API');
+    // Provide more detailed error message to help with troubleshooting
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to analyze contract with Anthropic API: ${errorMsg}`);
   }
 }
 
 export async function queryContract(contractText: string, query: string): Promise<string> {
   try {
+    // Check if API key is available
+    if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'dummy-key-for-development') {
+      console.warn('ANTHROPIC_API_KEY not properly configured');
+      return "Sorry, I cannot analyze this contract because the AI service is not properly configured. Please contact support for assistance.";
+    }
+    
     const prompt = `You are a helpful assistant for union members who want to understand their union contract. 
     Your task is to answer questions about the contract based on the contract text provided.
     
@@ -56,9 +75,16 @@ export async function queryContract(contractText: string, query: string): Promis
       messages: [{ role: 'user', content: prompt }],
     });
 
-    return response.content[0].text;
+    // Handle response format safely
+    if (response.content && response.content.length > 0 && 'text' in response.content[0]) {
+      return response.content[0].text;
+    } else {
+      return "Analysis completed, but the response format was unexpected.";
+    }
   } catch (error) {
     console.error('Error querying contract:', error);
-    throw new Error('Failed to query contract with Anthropic API');
+    // Provide more detailed error message to help with troubleshooting
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to query contract with Anthropic API: ${errorMsg}`);
   }
 }
