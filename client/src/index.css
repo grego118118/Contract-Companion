@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700;900&family=Source+Sans+Pro:wght@300;400;600;700&family=Roboto+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 13%;
+  --muted: 60 4.8% 95.9%;
+  --muted-foreground: 25 5.3% 44.7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 13%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 13%;
+  --border: 20 5.9% 90%;
+  --input: 20 5.9% 90%;
+  --primary: 240 65% 30%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 73% 47%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 120 45% 34%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 240 65% 30%;
+  --radius: 0.5rem;
+
+  /* Custom color variables */
+  --union-blue: 240 65% 30%;
+  --solidarity-red: 0 73% 47%;
+  --success-green: 120 45% 34%;
+  --text-primary: 0 0% 13%;
+  --text-secondary: 0 0% 26%;
+  --gray-light: 0 0% 96%;
+  --gray-medium: 0 0% 88%;
+
+  /* Chart colors for reference */
+  --chart-1: 240 65% 30%;
+  --chart-2: 0 73% 47%;
+  --chart-3: 120 45% 34%;
+  --chart-4: 39 100% 50%;
+  --chart-5: 271 76% 53%;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: 240 65% 50%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 73% 57%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 120 45% 44%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 240 4.9% 83.9%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Source Sans Pro', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Merriweather', serif;
+  }
+
+  code, pre {
+    font-family: 'Roboto Mono', monospace;
+  }
+}
+
+/* Custom styles */
+.chat-message-user {
+  @apply bg-blue-100 rounded-[18px] rounded-br-[4px];
+}
+
+.chat-message-assistant {
+  @apply bg-gray-100 rounded-[18px] rounded-bl-[4px];
+}
+
+.blog-card:hover {
+  @apply transform -translate-y-1 shadow-lg transition duration-300;
+}
+
+.contract-upload-area {
+  @apply border-2 border-dashed border-gray-300 transition-all duration-300;
+}
+
+.contract-upload-area:hover {
+  @apply border-primary;
+}
