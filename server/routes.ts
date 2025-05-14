@@ -104,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload a new contract
-  app.post("/api/contracts/upload", isAuthenticated, upload.single("contract"), async (req: any, res) => {
+  app.post("/api/contracts/upload", isAuthenticated, checkSubscription, upload.single("contract"), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -154,7 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a contract
-  app.delete("/api/contracts/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/contracts/:id", isAuthenticated, checkSubscription, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const contractId = req.params.id;
@@ -185,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get chat history for a contract
-  app.get("/api/contracts/:id/chat", isAuthenticated, async (req: any, res) => {
+  app.get("/api/contracts/:id/chat", isAuthenticated, checkSubscription, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const contractId = req.params.id;
@@ -209,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Query a contract
-  app.post("/api/contracts/:id/query", isAuthenticated, async (req: any, res) => {
+  app.post("/api/contracts/:id/query", isAuthenticated, checkSubscription, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const contractId = req.params.id;

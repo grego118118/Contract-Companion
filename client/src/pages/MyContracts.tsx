@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Plus, Calendar, History, Trash2 } from "lucide-react";
 import FileUpload from "@/components/ui/file-upload";
+import SubscriptionBanner from "@/components/subscription/SubscriptionBanner";
 import {
   AlertDialog,
   AlertDialogAction,
