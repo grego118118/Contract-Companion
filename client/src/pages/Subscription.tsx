@@ -10,6 +10,7 @@ import {
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import SubscriptionFeatures from '@/components/subscription/SubscriptionFeatures';
 import {
   Card,
   CardContent,
@@ -319,7 +320,8 @@ const SubscriptionPage = () => {
   
   return (
     <div className="container max-w-3xl py-12">
-      <h1 className="text-3xl font-bold mb-8">Subscription Management</h1>
+      <h1 className="text-3xl font-merriweather font-bold text-center mb-3">ContractCompanion Pro</h1>
+      <p className="text-center text-gray-600 mb-8">Unlock the full power of AI for your union contracts</p>
       
       {isLoadingSubscription ? (
         <Skeleton className="h-64 w-full" />
@@ -332,38 +334,11 @@ const SubscriptionPage = () => {
           {(!subscription || 
             subscription.status === 'trial_expired' || 
             subscription.status === 'canceled') && (
-            <NewSubscription />
+            <>
+              <SubscriptionFeatures />
+              <NewSubscription />
+            </>
           )}
-          
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <h2 className="text-xl font-semibold mb-4">ContractCompanion Pro Benefits</h2>
-            <ul className="space-y-2">
-              <li className="flex items-start">
-                <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                <span>Unlimited contract uploads and analysis</span>
-              </li>
-              <li className="flex items-start">
-                <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                <span>Advanced AI interpretation of legal language</span>
-              </li>
-              <li className="flex items-start">
-                <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                <span>Priority support from our team</span>
-              </li>
-              <li className="flex items-start">
-                <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                <span>Early access to new features</span>
-              </li>
-            </ul>
-          </div>
         </div>
       )}
     </div>

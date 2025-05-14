@@ -95,6 +95,7 @@ const BlogPost = ({ params }: { params: { id: string } }) => {
 
   return (
     <div className="container mx-auto px-4 py-12">
+      <SubscriptionBanner />
       <BlogDetail post={currentPost} />
 
       <div className="max-w-4xl mx-auto mt-16">
