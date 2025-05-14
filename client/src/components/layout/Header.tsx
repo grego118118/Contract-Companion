@@ -78,6 +78,9 @@ const Header = () => {
                 <DropdownMenuItem asChild>
                   <Link href="/my-contracts">My Contracts</Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/subscription">Subscription</Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <a href="/api/logout" className="text-secondary">
@@ -135,6 +138,15 @@ const Header = () => {
               {item.title}
             </Link>
           ))}
+          {isAuthenticated && (
+            <Link
+              href="/subscription"
+              className="block py-2 font-semibold text-accent"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Subscription
+            </Link>
+          )}
           {!isAuthenticated && (
             <a
               href="/api/login"

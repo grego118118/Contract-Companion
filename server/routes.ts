@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from "uuid";
 import { PDFDocument } from "pdf-lib";
 import type { Request, Response } from "express";
 import Stripe from "stripe";
+import { checkSubscription } from "./middleware/subscriptionCheck";
 
 // Initialize Stripe
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -68,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Contracts API
   
   // Get all contracts for a user
-  app.get("/api/contracts", isAuthenticated, async (req: any, res) => {
+  app.get("/api/contracts", isAuthenticated, checkSubscription, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const contracts = await storage.getUserContracts(userId);
@@ -80,7 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get a specific contract
-  app.get("/api/contracts/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/contracts/:id", isAuthenticated, checkSubscription, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const contractId = req.params.id;
