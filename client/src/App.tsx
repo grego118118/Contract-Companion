@@ -11,6 +11,8 @@ import ContractDetail from "@/pages/ContractDetail";
 import Blog from "@/pages/Blog";
 import BlogPost from "@/pages/BlogPost";
 import About from "@/pages/About";
+import Subscription from "@/pages/Subscription";
+import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import NotFound from "@/pages/not-found";
 
 function Router() {
