@@ -80,7 +80,8 @@ const Blog = () => {
     queryKey: ["/api/blog"],
   });
 
-  const posts = blogPosts || FALLBACK_BLOG_POSTS;
+  // Use fallback posts if API returns empty array or null
+  const posts = (blogPosts && blogPosts.length > 0) ? blogPosts : FALLBACK_BLOG_POSTS;
 
   // Filter posts based on search term and category
   const filteredPosts = posts.filter((post) => {

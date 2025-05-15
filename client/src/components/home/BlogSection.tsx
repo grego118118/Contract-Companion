@@ -39,7 +39,7 @@ const BlogSection = () => {
     },
   ];
 
-  const displayPosts = blogPosts || fallbackPosts;
+  const displayPosts = (blogPosts && blogPosts.length > 0) ? blogPosts : fallbackPosts;
 
   return (
     <section className="py-16 bg-white">
