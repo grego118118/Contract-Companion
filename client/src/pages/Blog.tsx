@@ -14,74 +14,61 @@ import { Search } from "lucide-react";
 
 const CATEGORIES = [
   "All",
-  "Healthcare",
-  "Manufacturing",
-  "Education",
-  "Contract Win",
-  "Arbitration Win",
-  "Grievance Win",
+  "Rights & Benefits",
+  "Organizing",
+  "Negotiations",
+  "Legal Updates",
+  "Union History",
 ];
 
 const FALLBACK_BLOG_POSTS = [
   {
     id: "1",
-    title: "Nurses Union Secures Landmark Staff-to-Patient Ratio Agreement",
-    excerpt:
-      "After months of negotiations, Local 456 Nurses Union has secured a groundbreaking agreement establishing mandatory staff-to-patient ratios, ensuring better patient care and working conditions.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1573496546038-82f9c39f6365?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&h=340",
-    categories: ["Healthcare", "Contract Win"],
-    publishedAt: "2023-03-15T00:00:00Z",
+    title: "Understanding Your Union Contract: Key Rights to Know",
+    excerpt: "A comprehensive overview of the essential rights and protections typically found in union contracts, and how to identify them in your own agreement.",
+    imageUrl: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
+    categories: ["Rights & Benefits"],
+    publishedAt: new Date().toISOString(),
   },
   {
     id: "2",
-    title: "Arbitration Victory Reinstates Unjustly Terminated Workers",
-    excerpt:
-      "Five workers wrongfully terminated for union organizing activities have been reinstated with full back pay following a successful arbitration case that set a precedent for the industry.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1529420705456-5c7e04dd043d?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&h=340",
-    categories: ["Manufacturing", "Arbitration Win"],
-    publishedAt: "2023-02-28T00:00:00Z",
+    title: "The Grievance Process Explained: Standing Up for Your Rights",
+    excerpt: "A step-by-step guide to understanding and navigating the grievance process when you believe your contract rights have been violated.",
+    imageUrl: "https://images.unsplash.com/photo-1507537297725-24a1c029d3ca?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
+    categories: ["Rights & Benefits"],
+    publishedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: "3",
-    title: "Teachers Union Wins Retroactive Pay After Contract Dispute",
-    excerpt:
-      "Local 789 Teachers Union successfully resolved a grievance resulting in retroactive pay increases for over 500 teachers after the district failed to implement agreed-upon raises.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&h=340",
-    categories: ["Education", "Grievance Win"],
-    publishedAt: "2023-01-12T00:00:00Z",
+    title: "Preparing for Contract Negotiations: What Members Should Know",
+    excerpt: "How members can effectively participate in the contract negotiation process and make their voices heard in shaping their working conditions.",
+    imageUrl: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
+    categories: ["Negotiations"],
+    publishedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: "4",
-    title: "Hospital Workers Secure Improved Safety Protocols Through Collective Bargaining",
-    excerpt:
-      "Union members at City General Hospital have won enhanced safety measures including improved PPE standards and hazard pay for frontline workers through their latest round of collective bargaining.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1581056771107-24ca5f033842?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&h=340",
-    categories: ["Healthcare", "Contract Win"],
-    publishedAt: "2023-04-05T00:00:00Z",
+    title: "Recent Legal Decisions Affecting Union Rights",
+    excerpt: "An analysis of important court decisions and legislative changes that impact union members' rights and how they might affect your workplace.",
+    imageUrl: "https://images.unsplash.com/photo-1589578527966-fdac0f44566c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
+    categories: ["Legal Updates"],
+    publishedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: "5",
-    title: "Auto Workers Grievance Results in Back Pay for Misclassified Employees",
-    excerpt:
-      "A successful grievance filed by the United Auto Workers has resulted in over $2 million in back pay for 150 workers who were incorrectly classified at a lower pay grade for over two years.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&h=340",
-    categories: ["Manufacturing", "Grievance Win"],
-    publishedAt: "2022-11-18T00:00:00Z",
+    title: "The History of Labor Unions: Struggles That Secured Your Rights",
+    excerpt: "Exploring the rich history of the labor movement and how past struggles have shaped the workplace protections we have today.",
+    imageUrl: "https://images.unsplash.com/photo-1588611911587-7bc8ffd4d05d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
+    categories: ["Union History", "Organizing"],
+    publishedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: "6",
-    title: "University Staff Union Successfully Negotiates Remote Work Provisions",
-    excerpt:
-      "After a year of negotiations, the university staff union has secured flexible remote work options in their new contract, allowing eligible employees to work remotely up to three days per week.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1577896851231-70ef18881754?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&h=340",
-    categories: ["Education", "Contract Win"],
-    publishedAt: "2022-09-24T00:00:00Z",
+    title: "Building Solidarity: Effective Organizing Strategies for Today's Workplace",
+    excerpt: "Modern approaches to building union power and solidarity in diverse workplaces, with case studies of successful organizing campaigns.",
+    imageUrl: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
+    categories: ["Organizing"],
+    publishedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
   },
 ];
 
@@ -113,12 +100,11 @@ const Blog = () => {
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-merriweather font-bold text-center mb-4">
-          Union Victory Stories
+          Union Education Resources
         </h1>
         <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-          Learn about recent union victories, successful grievances, and
-          arbitration wins that have improved working conditions and rights for
-          members.
+          Learn about your rights, contract interpretation, negotiation strategies, and
+          labor history to help you better understand and advocate for your workplace rights.
         </p>
         
         <SubscriptionBanner />
