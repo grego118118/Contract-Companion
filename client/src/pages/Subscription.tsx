@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLocation, useRoute, Redirect } from 'wouter';
+import { useLocation, Redirect } from 'wouter';
 import { loadStripe } from '@stripe/stripe-js';
+import type { StripeElementsOptions } from '@stripe/stripe-js';
 import {
   Elements,
   PaymentElement,
@@ -324,7 +325,8 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
   const planName = PLAN_NAMES[planId as keyof typeof PLAN_NAMES];
   const planPrice = PLAN_PRICES[planId as keyof typeof PLAN_PRICES];
   
-  const options: { clientSecret: string, appearance: { theme: 'stripe' | 'flat' | 'night' } } = {
+  // Define Stripe Elements options with proper typing
+  const options: StripeElementsOptions = {
     clientSecret,
     appearance: {
       theme: 'stripe',
@@ -360,15 +362,26 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
 
 const SubscriptionPage = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const { data: subscription, isLoading: isLoadingSubscription } = useQuery({
+  // Define strong type for subscription data
+  type SubscriptionData = {
+    status: 'trial' | 'active' | 'past_due' | 'trial_expired' | 'canceled';
+    planId: string;
+    daysLeft?: number;
+    trialEndsAt?: string;
+    currentPeriodEnd?: string;
+  };
+  
+  const { data: subscription, isLoading: isLoadingSubscription } = useQuery<SubscriptionData>({
     queryKey: ['/api/subscription'],
     enabled: isAuthenticated,
   });
   
-  // Get URL parameters to see if an upgrade was requested
-  const [, params] = useRoute<{ plan?: string }>('/subscription/:plan?');
+  // Get URL parameters from the search query
   const isUpgrading = window.location.search.includes('upgrade=true');
-  const planFromUrl = params?.plan;
+  
+  // Extract plan from URL query parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const planFromUrl = urlParams.get('plan');
   
   // Handle authentication
   if (isLoading) {
@@ -393,12 +406,89 @@ const SubscriptionPage = () => {
       ) : (
         <div className="space-y-8">
           {subscription && !isUpgrading && (
-            <SubscriptionStatus />
+            <div className="subscription-status">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>Your Subscription</CardTitle>
+                    {subscription.status === 'trial' && (
+                      <Badge>Trial</Badge>
+                    )}
+                    {subscription.status === 'active' && (
+                      <Badge className="bg-green-500">Active</Badge>
+                    )}
+                    {subscription.status === 'past_due' && (
+                      <Badge className="bg-yellow-500">Past Due</Badge>
+                    )}
+                    {subscription.status === 'canceled' && (
+                      <Badge variant="destructive">Canceled</Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {subscription.status === 'trial' && (
+                    <div>
+                      <p className="font-medium">Your free trial ends in {subscription.daysLeft || 7} days</p>
+                      <p className="text-sm text-gray-500">
+                        {subscription.trialEndsAt && (
+                          <>On {new Date(subscription.trialEndsAt).toLocaleDateString()}</>
+                        )}
+                      </p>
+                      <p className="mt-4">
+                        You're currently on the {subscription.planId} plan. 
+                        Subscribe now to keep access after your trial ends.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {subscription.status === 'active' && (
+                    <div>
+                      <p className="font-medium">Your subscription renews on</p>
+                      <p>
+                        {subscription.currentPeriodEnd && (
+                          <>{new Date(subscription.currentPeriodEnd).toLocaleDateString()}</>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {subscription.status === 'canceled' && (
+                    <div>
+                      <p className="font-medium">Your subscription has been canceled</p>
+                      <p className="text-sm text-gray-500">
+                        Please subscribe again to continue using premium features.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  {(subscription.status === 'trial' || 
+                    subscription.status === 'canceled') && (
+                    <Button 
+                      onClick={() => window.location.replace(`/subscription?upgrade=true&plan=${subscription.planId}`)}
+                      className="w-full"
+                    >
+                      Subscribe Now
+                    </Button>
+                  )}
+                  
+                  {subscription.status === 'active' && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => window.location.replace('/subscription/manage')}
+                    >
+                      Manage Subscription
+                    </Button>
+                  )}
+                </CardFooter>
+              </Card>
+            </div>
           )}
           
           {(!subscription || 
-            (subscription && subscription.status === 'trial_expired') || 
-            (subscription && subscription.status === 'canceled') || 
+            (subscription?.status === 'trial_expired') || 
+            (subscription?.status === 'canceled') || 
             isUpgrading) && (
             <NewSubscription selectedPlan={planFromUrl || undefined} />
           )}
