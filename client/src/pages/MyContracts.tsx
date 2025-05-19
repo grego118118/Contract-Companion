@@ -21,7 +21,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
-import { queryClient } from "@/lib/queryClient";
 
 const MyContracts = () => {
   const [, setLocation] = useLocation();
@@ -31,8 +30,10 @@ const MyContracts = () => {
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
+  const [refreshKey, setRefreshKey] = useState(0);
+  
   const { data: contracts, isLoading } = useQuery({
-    queryKey: ["/api/contracts"],
+    queryKey: ["/api/contracts", refreshKey],
     enabled: isAuthenticated,
   });
 
@@ -73,9 +74,9 @@ const MyContracts = () => {
         description: "Your contract is now being analyzed",
       });
 
-      // Invalidate contracts query
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-
+      // Refresh the contracts list
+      setRefreshKey(prev => prev + 1);
+      
       // Reset state
       setSelectedFile(null);
       setUploadMode(false);
@@ -100,8 +101,8 @@ const MyContracts = () => {
         description: "Your contract has been successfully deleted",
       });
       
-      // Invalidate contracts query
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      // Refresh the contracts list
+      setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error("Delete error:", error);
       toast({

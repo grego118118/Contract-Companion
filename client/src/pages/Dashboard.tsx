@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Link } from "wouter";
 import { Loader2, AlertCircle, PlusCircle, FileText, BarChart3, CreditCard, BookMarked } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from 'date-fns';
 
 // Usage chart
@@ -490,8 +490,8 @@ const Dashboard = () => {
                                 if (window.confirm("Are you sure you want to cancel your subscription? You'll still have access until the end of your current billing period.")) {
                                   try {
                                     await apiRequest("POST", "/api/cancel-subscription");
-                                    // Invalidate subscription cache to refresh data
-                                    queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
+                                    // Refresh the page to show updated subscription status
+                                    window.location.reload();
                                   } catch (error) {
                                     console.error("Error canceling subscription:", error);
                                   }
@@ -615,8 +615,8 @@ const Dashboard = () => {
                                   if (window.confirm("Are you sure you want to delete this contract? This action cannot be undone.")) {
                                     try {
                                       await apiRequest("DELETE", `/api/contracts/${contract.id}`);
-                                      // Invalidate contracts cache to refresh the list
-                                      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+                                      // Refresh the page to show updated list
+                                      window.location.reload();
                                     } catch (error) {
                                       console.error("Error deleting contract:", error);
                                     }
@@ -757,8 +757,8 @@ const Dashboard = () => {
                                 if (window.confirm("Remove this saved answer?")) {
                                   try {
                                     await apiRequest("POST", `/api/chats/${chat.id}/unsave`);
-                                    // Invalidate saved chats to refresh the list
-                                    queryClient.invalidateQueries({ queryKey: ["/api/saved-chats"] });
+                                    // Refresh the page to show updated list
+                                    window.location.reload();
                                   } catch (error) {
                                     console.error("Error removing saved chat:", error);
                                   }

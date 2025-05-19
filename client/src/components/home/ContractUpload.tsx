@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
-import { queryClient } from "@/lib/queryClient";
 import { Shield, Check } from "lucide-react";
 
 const ContractUpload = () => {
@@ -58,8 +57,7 @@ const ContractUpload = () => {
         description: "Your contract is now being analyzed",
       });
 
-      // Invalidate contracts query
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      // No need to invalidate queries, we'll redirect to the new page
 
       // Redirect to the contract detail page
       setLocation(`/contract/${data.id}`);

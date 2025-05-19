@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 
 // Topic categories with their icons and descriptions

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -36,19 +37,19 @@ function Router() {
   );
 }
 
-// Create a fresh QueryClient instance with optimized settings
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      staleTime: 30000,
-      retry: 1,
-      retryDelay: 1000,
-    },
-  },
-});
-
 function App() {
+  // Create a new QueryClient instance inside the component to avoid
+  // duplicate declarations from fast refresh
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false,
+        staleTime: 30000,
+        retry: 1,
+      },
+    },
+  }));
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

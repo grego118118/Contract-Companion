@@ -1,6 +1,6 @@
-import { QueryClient } from "@tanstack/react-query";
-
-// Simple wrapper for API requests
+/**
+ * API request utility for making fetch requests
+ */
 export async function apiRequest(
   method: string,
   url: string,
@@ -25,13 +25,3 @@ export async function apiRequest(
     throw error;
   }
 }
-
-// Basic default query client
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: false,
-    },
-  },
-});
