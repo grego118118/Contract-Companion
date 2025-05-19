@@ -103,6 +103,12 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
+    // Store the return URL in the session if provided
+    if (req.query.returnTo) {
+      // Need to cast as any since we're adding custom properties
+      (req.session as any).returnTo = req.query.returnTo;
+    }
+    
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
@@ -111,8 +117,8 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
+      successRedirect: "/"
     })(req, res, next);
   });
 

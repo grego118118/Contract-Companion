@@ -13,8 +13,8 @@ const PricingPage = () => {
       // Go directly to DirectCheckout component with plan ID
       window.location.href = `/checkout/${planId}`;
     } else {
-      // User needs to log in first
-      window.location.href = "/api/login";
+      // User needs to log in first - include return URL
+      window.location.href = `/api/login?returnTo=/checkout/${planId}`;
     }
   };
 

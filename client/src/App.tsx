@@ -13,7 +13,7 @@ import BlogPost from "@/pages/BlogPost";
 import About from "@/pages/About";
 import Pricing from "@/pages/Pricing";
 import Subscription from "@/pages/Subscription";
-import DirectCheckout from "@/pages/DirectCheckout";
+import Checkout from "@/pages/Checkout";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/not-found";
@@ -29,7 +29,7 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/subscription" component={Subscription} />
-      <Route path="/checkout/:plan?" component={DirectCheckout} />
+      <Route path="/checkout/:plan?" component={Checkout} />
       <Route path="/subscription/success" component={SubscriptionSuccess} />
       <Route path="/dashboard" component={Dashboard} />
       <Route component={NotFound} />
