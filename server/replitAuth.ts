@@ -103,60 +103,22 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    // Store the current URL in the session if returnTo is not provided
+    // Store the return URL in the session if provided
     if (req.query.returnTo) {
       // Need to cast as any since we're adding custom properties
       (req.session as any).returnTo = req.query.returnTo;
-    } else if (req.headers.referer) {
-      // If no returnTo is provided, use the referrer URL
-      const refererUrl = new URL(req.headers.referer);
-      // Only store path for same-origin redirects
-      if (refererUrl.hostname === req.hostname) {
-        (req.session as any).returnTo = refererUrl.pathname + refererUrl.search;
-      }
     }
     
-    // Save the session before continuing with authentication
-    req.session.save((err) => {
-      if (err) {
-        console.error("Error saving session:", err);
-      }
-      
-      passport.authenticate(`replitauth:${req.hostname}`, {
-        prompt: "login consent",
-        scope: ["openid", "email", "profile", "offline_access"],
-      })(req, res, next);
-    });
+    passport.authenticate(`replitauth:${req.hostname}`, {
+      prompt: "login consent",
+      scope: ["openid", "email", "profile", "offline_access"],
+    })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, (err: Error | null, user: Express.User | undefined, info: any) => {
-      if (err) {
-        console.error("Authentication error:", err);
-        return res.redirect("/api/login");
-      }
-      
-      if (!user) {
-        console.error("No user returned from authentication");
-        return res.redirect("/api/login");
-      }
-      
-      // Log in the user
-      req.logIn(user, (loginErr) => {
-        if (loginErr) {
-          console.error("Login error:", loginErr);
-          return res.redirect("/api/login");
-        }
-        
-        // Check if there's a return URL in the session
-        const returnTo = (req.session as any).returnTo || "/";
-        delete (req.session as any).returnTo;
-        
-        console.log("Authentication successful, redirecting to:", returnTo);
-        
-        // Redirect to the return URL or home page
-        return res.redirect(returnTo);
-      });
+    passport.authenticate(`replitauth:${req.hostname}`, {
+      failureRedirect: "/api/login",
+      successReturnToOrRedirect: "/",
     })(req, res, next);
   });
 
@@ -173,8 +135,16 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Skip authentication check for these public routes
+  const publicApiRoutes = ['/api/login', '/api/callback', '/api/blog', '/api/blog/featured'];
+  
+  // Check if this is a public API route
+  if (publicApiRoutes.includes(req.path) || req.path.startsWith('/api/blog/')) {
+    return next();
+  }
+
   // For API requests, return unauthorized status
-  if (req.path.startsWith('/api/') && req.path !== '/api/login' && req.path !== '/api/callback') {
+  if (req.path.startsWith('/api/')) {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -186,6 +156,8 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   } 
   // For non-API requests (UI routes), redirect to login
   else if (!req.isAuthenticated()) {
+    // Store the current URL so we can redirect back after login
+    (req.session as any).returnTo = req.originalUrl;
     return res.redirect("/api/login");
   }
   
