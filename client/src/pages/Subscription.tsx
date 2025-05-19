@@ -277,13 +277,17 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
   const [planId, setPlanId] = useState<string>(selectedPlan);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
   useEffect(() => {
     // Create a subscription
     const createSubscription = async () => {
       setIsLoading(true);
+      setError(null);
+      
       try {
+        console.log('Creating subscription for plan:', planId);
         const response = await apiRequest('POST', '/api/subscription', { 
           plan: planId 
         });
@@ -294,13 +298,17 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
         }
         
         const data = await response.json();
+        console.log('Subscription created:', data);
+        
         if (data && data.clientSecret) {
           setClientSecret(data.clientSecret);
         } else {
+          console.error('No client secret in response:', data);
           throw new Error('No client secret returned from server');
         }
       } catch (error: any) {
         console.error('Subscription creation error:', error);
+        setError(error.message || 'Could not create subscription');
         toast({
           title: 'Error',
           description: error.message || 'Could not create subscription',
@@ -318,7 +326,38 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
     setPlanId(newPlanId);
   };
   
-  if (!clientSecret) {
+  const planName = PLAN_NAMES[planId] || 'Standard';
+  const planPrice = PLAN_PRICES[planId] || '$19.99';
+  
+  // Define Stripe Elements options
+  const options = clientSecret ? {
+    clientSecret,
+    appearance: {
+      theme: 'stripe' as 'stripe',
+    },
+  } : undefined;
+  
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <SubscriptionPlans onPlanSelect={handlePlanSelect} selectedPlan={planId} />
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-red-600">Subscription Error</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => window.location.reload()} className="w-full">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  if (isLoading || !clientSecret) {
     return (
       <div className="space-y-8">
         <SubscriptionPlans onPlanSelect={handlePlanSelect} selectedPlan={planId} />
@@ -335,17 +374,6 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
       </div>
     );
   }
-  
-  const planName = PLAN_NAMES[planId] || 'Standard';
-  const planPrice = PLAN_PRICES[planId] || '$19.99';
-  
-  // Define Stripe Elements options
-  const options = {
-    clientSecret,
-    appearance: {
-      theme: 'stripe' as 'stripe',
-    },
-  };
   
   return (
     <div className="space-y-8">
