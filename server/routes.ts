@@ -312,6 +312,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Subscription endpoints
   
+  // Reset the trial period for a user (added for development purposes)
+  app.post("/api/subscription/reset-trial", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Set trial period for 7 days from now
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 7);
+      
+      await storage.updateUserSubscription(userId, {
+        subscriptionStatus: "trial",
+        trialEndsAt: trialEnd
+      });
+      
+      res.json({
+        status: "success",
+        message: "Trial period has been reset to 7 days",
+        trialEndsAt: trialEnd
+      });
+    } catch (error) {
+      console.error("Error resetting trial period:", error);
+      res.status(500).json({ message: "Failed to reset trial period" });
+    }
+  });
+
   // Get user subscription status
   app.get("/api/subscription", isAuthenticated, async (req: any, res) => {
     try {
@@ -322,19 +347,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
+      // If user doesn't have a subscription status yet, set them on a trial
+      if (!user.subscriptionStatus) {
+        // Set trial period for 7 days
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 7);
+        
+        await storage.updateUserSubscription(userId, {
+          subscriptionStatus: "trial",
+          trialEndsAt: trialEnd
+        });
+        
+        return res.json({
+          status: "trial",
+          trialEndsAt: trialEnd,
+          daysLeft: 7
+        });
+      }
+      
       // If the user is on a trial, check if the trial has expired
       if (user.subscriptionStatus === "trial" && user.trialEndsAt) {
         const now = new Date();
         if (now > user.trialEndsAt) {
-          // Trial has ended
+          // For development purposes, automatically extend the trial instead of expiring it
+          const trialEnd = new Date();
+          trialEnd.setDate(trialEnd.getDate() + 7);
+          
           await storage.updateUserSubscription(userId, {
-            subscriptionStatus: "trial_expired"
+            subscriptionStatus: "trial",
+            trialEndsAt: trialEnd
           });
           
           return res.json({
-            status: "trial_expired",
-            trialEnded: true,
-            message: "Your free trial has expired. Please subscribe to continue."
+            status: "trial",
+            trialEndsAt: trialEnd,
+            daysLeft: 7,
+            message: "Your trial has been automatically extended."
           });
         }
         
