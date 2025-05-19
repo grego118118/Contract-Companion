@@ -135,13 +135,20 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  if (!req.isAuthenticated()) {
-    return res.redirect("/api/login?returnTo=" + encodeURIComponent(req.originalUrl));
-  }
-  
-  const user = req.user as any;
-  if (!user || !user.claims || !user.claims.sub) {
-    return res.redirect("/api/login?returnTo=" + encodeURIComponent(req.originalUrl));
+  // For API requests, return unauthorized status
+  if (req.path.startsWith('/api/') && req.path !== '/api/login' && req.path !== '/api/callback') {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const user = req.user as any;
+    if (!user || !user.claims || !user.claims.sub) {
+      return res.status(401).json({ message: "Invalid user session" });
+    }
+  } 
+  // For non-API requests (UI routes), redirect to login
+  else if (!req.isAuthenticated()) {
+    return res.redirect("/api/login");
   }
   
   // We have a valid session - proceed
