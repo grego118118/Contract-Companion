@@ -27,15 +27,15 @@ export function getSession() {
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
+    createTableIfMissing: true, // Create table if it doesn't exist
     ttl: sessionTtl,
     tableName: "sessions",
   });
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: process.env.SESSION_SECRET || "temp-session-secret-for-development",
     store: sessionStore,
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true, // Save uninitialized sessions to store returnTo
     cookie: {
       httpOnly: true,
       secure: false, // Set to false to allow non-HTTPS during development
@@ -103,22 +103,63 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    // Store the return URL in the session if provided
+    // Store the return URL in the session
     if (req.query.returnTo) {
-      // Need to cast as any since we're adding custom properties
-      (req.session as any).returnTo = req.query.returnTo;
+      (req.session as any).returnTo = req.query.returnTo as string;
+      console.log("Storing returnTo in session:", req.query.returnTo);
+      
+      // Save session explicitly before redirecting to auth provider
+      req.session.save((err) => {
+        if (err) {
+          console.error("Failed to save session before auth:", err);
+        }
+        
+        passport.authenticate(`replitauth:${req.hostname}`, {
+          prompt: "login consent",
+          scope: ["openid", "email", "profile", "offline_access"],
+        })(req, res, next);
+      });
+    } else {
+      passport.authenticate(`replitauth:${req.hostname}`, {
+        prompt: "login consent",
+        scope: ["openid", "email", "profile", "offline_access"],
+      })(req, res, next);
     }
-    
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      failureRedirect: "/api/login",
-      successReturnToOrRedirect: "/",
+    passport.authenticate(`replitauth:${req.hostname}`, (err: Error | null, user: Express.User | undefined, info: any) => {
+      if (err) {
+        console.error("Authentication error:", err);
+        return res.redirect("/");
+      }
+      
+      if (!user) {
+        console.error("No user returned from authentication");
+        return res.redirect("/");
+      }
+      
+      // Log in the user
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error("Login error:", loginErr);
+          return res.redirect("/");
+        }
+        
+        // Check if there's a return URL in the session
+        const returnTo = (req.session as any).returnTo || "/";
+        delete (req.session as any).returnTo;
+        
+        console.log("Authentication successful, redirecting to:", returnTo);
+        
+        // Save the updated session before redirecting
+        req.session.save((err) => {
+          if (err) {
+            console.error("Error saving session after login:", err);
+          }
+          return res.redirect(returnTo as string);
+        });
+      });
     })(req, res, next);
   });
 
@@ -135,8 +176,14 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // Skip authentication check for these public routes
-  const publicApiRoutes = ['/api/login', '/api/callback', '/api/blog', '/api/blog/featured'];
+  // List of API routes that don't require authentication
+  const publicApiRoutes = [
+    '/api/login', 
+    '/api/callback', 
+    '/api/blog', 
+    '/api/blog/featured',
+    '/api/auth/user' // Allow checking auth status without requiring auth
+  ];
   
   // Check if this is a public API route
   if (publicApiRoutes.includes(req.path) || req.path.startsWith('/api/blog/')) {
@@ -146,21 +193,19 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   // For API requests, return unauthorized status
   if (req.path.startsWith('/api/')) {
     if (!req.isAuthenticated()) {
+      console.log("API request unauthorized:", req.path);
       return res.status(401).json({ message: "Unauthorized" });
     }
     
     const user = req.user as any;
     if (!user || !user.claims || !user.claims.sub) {
+      console.log("Invalid user session for API request:", req.path);
       return res.status(401).json({ message: "Invalid user session" });
     }
   } 
-  // For non-API requests (UI routes), redirect to login
-  else if (!req.isAuthenticated()) {
-    // Store the current URL so we can redirect back after login
-    (req.session as any).returnTo = req.originalUrl;
-    return res.redirect("/api/login");
-  }
+  // For non-API requests (UI routes), allow access
+  // Let the frontend handle redirecting to login if needed
   
-  // We have a valid session - proceed
+  // We have a valid session or it's a UI route - proceed
   return next();
 };
