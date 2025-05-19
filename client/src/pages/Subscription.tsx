@@ -65,19 +65,14 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ planId }) => {
     setErrorMessage(null);
     
     try {
-      // Create checkout session on the server
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ plan: planId }),
+      // Create checkout session on the server using our standardized API request function
+      const response = await apiRequest('POST', '/api/create-checkout-session', { 
+        plan: planId 
       });
       
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Failed to create checkout session');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create checkout session');
       }
       
       const { checkoutUrl } = await response.json();
@@ -280,54 +275,9 @@ const SubscriptionStatus = () => {
 
 const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string }) => {
   const [planId, setPlanId] = useState<string>(selectedPlan);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  
-  const createSubscription = useCallback(async (plan: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      console.log('Creating subscription for plan:', plan);
-      const response = await apiRequest('POST', '/api/subscription', { 
-        plan: plan 
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create subscription');
-      }
-      
-      const data = await response.json();
-      console.log('Subscription created:', data);
-      
-      if (data && data.clientSecret) {
-        setClientSecret(data.clientSecret);
-        return data.clientSecret;
-      } else {
-        console.error('No client secret in response:', data);
-        throw new Error('No client secret returned from server');
-      }
-    } catch (error: any) {
-      console.error('Subscription creation error:', error);
-      setError(error.message || 'Could not create subscription');
-      toast({
-        title: 'Error',
-        description: error.message || 'Could not create subscription',
-        variant: 'destructive',
-      });
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
-  
-  // Create subscription when component mounts or plan changes
-  useEffect(() => {
-    createSubscription(planId);
-  }, [createSubscription, planId]);
   
   const handlePlanSelect = (newPlanId: string) => {
     setPlanId(newPlanId);
@@ -335,21 +285,6 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
   
   const planName = PLAN_NAMES[planId] || 'Standard';
   const planPrice = PLAN_PRICES[planId] || '$19.99';
-  
-  // Define Stripe Elements options with proper styling
-  // Define Stripe Elements options
-  const options = {
-    clientSecret: clientSecret || '',
-    appearance: {
-      theme: 'stripe' as 'stripe',
-      variables: {
-        colorPrimary: '#1A237E',
-        colorBackground: '#ffffff',
-        colorText: '#212121',
-        borderRadius: '4px',
-      },
-    },
-  };
   
   if (error) {
     return (
