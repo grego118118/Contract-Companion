@@ -103,6 +103,13 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
+    // Always clear any previous login attempts first
+    if (req.isAuthenticated()) {
+      console.log("User already authenticated, proceeding to returnTo or home");
+      const returnTo = req.query.returnTo as string || '/';
+      return res.redirect(returnTo);
+    }
+
     // Store the return URL in the session
     if (req.query.returnTo) {
       (req.session as any).returnTo = req.query.returnTo as string;
