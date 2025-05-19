@@ -107,24 +107,12 @@ export async function setupAuth(app: Express) {
     if (req.query.returnTo) {
       (req.session as any).returnTo = req.query.returnTo as string;
       console.log("Storing returnTo in session:", req.query.returnTo);
-      
-      // Save session explicitly before redirecting to auth provider
-      req.session.save((err) => {
-        if (err) {
-          console.error("Failed to save session before auth:", err);
-        }
-        
-        passport.authenticate(`replitauth:${req.hostname}`, {
-          prompt: "login consent",
-          scope: ["openid", "email", "profile", "offline_access"],
-        })(req, res, next);
-      });
-    } else {
-      passport.authenticate(`replitauth:${req.hostname}`, {
-        prompt: "login consent",
-        scope: ["openid", "email", "profile", "offline_access"],
-      })(req, res, next);
     }
+      
+    passport.authenticate(`replitauth:${req.hostname}`, {
+      prompt: "login consent",
+      scope: ["openid", "email", "profile", "offline_access"],
+    })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
