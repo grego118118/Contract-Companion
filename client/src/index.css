@@ -4,6 +4,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fix for Stripe Elements */
+.StripeElement {
+  width: 100%;
+  padding: 10px;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+}
+
+.StripeElement--focus {
+  border-color: #1A237E;
+  box-shadow: 0 0 0 1px rgba(26, 35, 126, 0.5);
+}
+
+/* Make sure form elements are interactive */
+.StripeElement iframe {
+  z-index: 100 !important;
+  pointer-events: auto !important;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 0 0% 13%;

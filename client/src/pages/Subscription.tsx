@@ -60,6 +60,15 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ planId }) => {
   const elements = useElements();
   const { toast } = useToast();
   
+  // Add this useEffect to help debug stripe elements
+  useEffect(() => {
+    if (!stripe || !elements) {
+      console.log('Stripe or Elements not initialized');
+    } else {
+      console.log('Stripe and Elements initialized successfully');
+    }
+  }, [stripe, elements]);
+  
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
@@ -90,11 +99,13 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ planId }) => {
   };
   
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <PaymentElement />
+    <form onSubmit={handleSubmit} className="space-y-6 min-h-[300px]">
+      <div className="w-full min-h-[200px] mb-4">
+        <PaymentElement />
+      </div>
       
       {errorMessage && (
-        <div className="text-sm text-red-600">{errorMessage}</div>
+        <div className="text-sm text-red-600 p-2 bg-red-50 rounded">{errorMessage}</div>
       )}
       
       <Button
@@ -329,11 +340,17 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
   const planName = PLAN_NAMES[planId] || 'Standard';
   const planPrice = PLAN_PRICES[planId] || '$19.99';
   
-  // Define Stripe Elements options
+  // Define Stripe Elements options with proper styling
   const options = clientSecret ? {
     clientSecret,
     appearance: {
       theme: 'stripe' as 'stripe',
+      variables: {
+        colorPrimary: '#1A237E',
+        colorBackground: '#ffffff',
+        colorText: '#212121',
+        borderRadius: '4px',
+      },
     },
   } : undefined;
   
@@ -386,10 +403,12 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
             {planPrice}/month after your 7-day free trial
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Elements stripe={stripePromise} options={options}>
-            <CheckoutForm planId={planId} />
-          </Elements>
+        <CardContent className="relative z-10">
+          {clientSecret && (
+            <Elements stripe={stripePromise} options={options}>
+              <CheckoutForm planId={planId} />
+            </Elements>
+          )}
         </CardContent>
         <CardFooter className="flex-col items-start">
           <p className="text-sm text-gray-500 mt-4">
