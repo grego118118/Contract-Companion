@@ -648,7 +648,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Cancel subscription
+  // Create a checkout session for subscription
+  app.post("/api/create-checkout-session", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Get the requested plan (default to standard)
+      const planId = (req.body.plan || 'standard');
+      
+      if (!SUBSCRIPTION_PLANS[planId]) {
+        return res.status(400).json({ message: "Invalid subscription plan" });
+      }
+      
+      const plan = SUBSCRIPTION_PLANS[planId];
+      
+      // Create or retrieve Stripe customer
+      let customerId = user.stripeCustomerId;
+      
+      if (!customerId) {
+        // Create a new customer
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          name: user.firstName || 'Union Member',
+          metadata: {
+            userId: user.id
+          }
+        });
+        
+        customerId = customer.id;
+        
+        // Save the customer ID to the user record
+        await storage.updateUserSubscription(userId, {
+          stripeCustomerId: customerId
+        });
+      }
+      
+      // Create a checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `ContractCompanion ${plan.name} Plan`,
+                description: plan.description
+              },
+              unit_amount: plan.price,
+              recurring: {
+                interval: 'month'
+              }
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `${req.protocol}://${req.hostname}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${req.protocol}://${req.hostname}/subscription`,
+        subscription_data: {
+          trial_period_days: 7,
+          metadata: {
+            userId: user.id,
+            planId: planId
+          }
+        },
+        metadata: {
+          userId: user.id,
+          planId: planId
+        }
+      });
+      
+      res.json({ checkoutUrl: session.url });
+    } catch (error) {
+      console.error("Checkout session creation error:", error);
+      res.status(500).json({ message: "Failed to create checkout session" });
+    }
+  });
+
   app.delete("/api/subscription", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
