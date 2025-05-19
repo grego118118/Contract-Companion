@@ -48,15 +48,22 @@ const PLANS = [
 export default function Checkout() {
   const { isAuthenticated, isLoading } = useAuth();
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
-  const [match, params] = useRoute('/checkout/:plan?');
+  // Use path matching with wouter
+  const [, params] = useRoute('/checkout/:plan');
   
-  // Get the plan from the URL parameter
+  // Get the plan from the URL parameter with logging for debugging
   const getPlan = () => {
+    console.log("Route params:", params);
     if (params && params.plan) {
       const foundPlan = PLANS.find(p => p.id === params.plan);
+      if (!foundPlan) {
+        console.log(`No plan found matching ID: ${params.plan}`);
+      }
       return foundPlan || null;
     }
-    return null;
+    // If no plan parameter, return first plan as default
+    console.log("No plan parameter found, using default");
+    return PLANS[1]; // Default to Standard plan
   };
   
   const selectedPlan = getPlan();
