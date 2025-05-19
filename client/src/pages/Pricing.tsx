@@ -3,15 +3,16 @@ import { Button } from "@/components/ui/button";
 import { CheckIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 
 const PricingPage = () => {
   const { isAuthenticated } = useAuth();
+  const [, setLocation] = useLocation();
 
-  // Simple function to handle plan selection
+  // Updated function to handle plan selection using wouter
   const handlePlanSelect = (planId: string) => {
-    // Direct approach - always go to the checkout page first
-    // Let the checkout page handle authentication if needed
-    window.location.href = `/checkout/${planId}`;
+    // Use wouter's navigation instead of direct window.location
+    setLocation(`/checkout/${planId}`);
   };
 
   const individualPlans = [
