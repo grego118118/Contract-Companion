@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { Redirect, useLocation } from "wouter";
+import { Redirect, useLocation, useRoute } from "wouter";
 import { Loader2 } from "lucide-react";
 
 const PLANS = [
@@ -47,27 +47,38 @@ const PLANS = [
 export default function DirectCheckout() {
   const { isAuthenticated, isLoading } = useAuth();
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
+  const [, params] = useRoute('/checkout/:plan?');
   
-  // Parse the plan ID from the URL query parameters
-  const getSelectedPlan = () => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const planParam = params.get('plan');
-      return planParam && PLANS.some(plan => plan.id === planParam) ? planParam : null;
+  // Get plan from URL - either from path param or query param
+  const getPlanFromUrl = () => {
+    // First check path param
+    if (params && params.plan) {
+      return params.plan;
     }
-    return null;
+    
+    // Then check query param
+    const queryParams = new URLSearchParams(window.location.search);
+    const planQuery = queryParams.get('plan');
+    
+    return planQuery || null;
+  };
+  
+  // Validate if the plan is valid
+  const getValidPlan = () => {
+    const planFromUrl = getPlanFromUrl();
+    if (!planFromUrl) return null;
+    
+    const validPlan = PLANS.find(p => p.id === planFromUrl);
+    return validPlan ? validPlan.id : null;
   };
 
   const handleSubscribe = async (planId: string) => {
-    if (!planId) return;
-    
-    // Prevent duplicate processing
-    if (processingPlan) return;
+    if (!planId || processingPlan) return;
     
     setProcessingPlan(planId);
+    console.log('Subscribing to plan:', planId);
     
     try {
-      console.log('Creating checkout session for plan:', planId);
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,20 +87,16 @@ export default function DirectCheckout() {
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to create checkout session: ${response.status} ${response.statusText}`);
+        const errorData = await response.text();
+        throw new Error(`Failed to create checkout session: ${response.status} ${response.statusText} - ${errorData}`);
       }
       
       const data = await response.json();
       console.log('Checkout response:', data);
       
       if (data.checkoutUrl) {
-        console.log('Received checkout URL:', data.checkoutUrl);
-        
-        // Add a small delay before redirecting
-        setTimeout(() => {
-          // Open in a new window
-          window.open(data.checkoutUrl, '_blank');
-        }, 100);
+        console.log('Redirecting to checkout URL:', data.checkoutUrl);
+        window.location.href = data.checkoutUrl;
       } else {
         throw new Error('No checkout URL returned from server');
       }
@@ -101,11 +108,13 @@ export default function DirectCheckout() {
     }
   };
 
-  // Process plan selection on initial load
+  // Process plan selection when component mounts or authentication changes
   useEffect(() => {
-    const selectedPlan = getSelectedPlan();
-    if (selectedPlan && isAuthenticated && !processingPlan) {
-      handleSubscribe(selectedPlan);
+    if (isAuthenticated) {
+      const planId = getValidPlan();
+      if (planId) {
+        handleSubscribe(planId);
+      }
     }
   }, [isAuthenticated]);
 

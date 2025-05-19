@@ -29,7 +29,7 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/subscription" component={Subscription} />
-      <Route path="/checkout" component={DirectCheckout} />
+      <Route path="/checkout/:plan?" component={DirectCheckout} />
       <Route path="/subscription/success" component={SubscriptionSuccess} />
       <Route path="/dashboard" component={Dashboard} />
       <Route component={NotFound} />
