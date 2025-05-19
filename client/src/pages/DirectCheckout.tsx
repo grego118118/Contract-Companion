@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { Redirect } from "wouter";
+import { Redirect, useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 
 const PLANS = [
@@ -47,6 +47,18 @@ const PLANS = [
 export default function DirectCheckout() {
   const { isAuthenticated, isLoading } = useAuth();
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [location] = useLocation();
+
+  // Extract the plan from URL query parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const planParam = params.get('plan');
+    
+    if (planParam && PLANS.some(plan => plan.id === planParam)) {
+      setSelectedPlan(planParam);
+    }
+  }, [location]);
 
   const handleSubscribe = async (planId: string) => {
     setProcessingPlan(planId);
@@ -79,6 +91,13 @@ export default function DirectCheckout() {
       setProcessingPlan(null);
     }
   };
+
+  // Auto-subscribe to the plan specified in URL if one is provided
+  useEffect(() => {
+    if (selectedPlan && isAuthenticated && !processingPlan) {
+      handleSubscribe(selectedPlan);
+    }
+  }, [selectedPlan, isAuthenticated]);
 
   if (isLoading) {
     return (
