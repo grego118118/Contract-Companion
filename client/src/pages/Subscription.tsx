@@ -27,7 +27,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 
-// Initialize Stripe
+// Initialize Stripe with the public key
+console.log('Using Stripe key:', import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 // Plan details with Stripe price IDs
@@ -341,8 +342,9 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
   const planPrice = PLAN_PRICES[planId] || '$19.99';
   
   // Define Stripe Elements options with proper styling
-  const options = clientSecret ? {
-    clientSecret,
+  // Define Stripe Elements options
+  const options = {
+    clientSecret: clientSecret || '',
     appearance: {
       theme: 'stripe' as 'stripe',
       variables: {
@@ -352,7 +354,7 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
         borderRadius: '4px',
       },
     },
-  } : undefined;
+  };
   
   if (error) {
     return (
@@ -374,7 +376,7 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
     );
   }
   
-  if (isLoading || !clientSecret) {
+  if (isLoading) {
     return (
       <div className="space-y-8">
         <SubscriptionPlans onPlanSelect={handlePlanSelect} selectedPlan={planId} />
@@ -403,12 +405,10 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
             {planPrice}/month after your 7-day free trial
           </CardDescription>
         </CardHeader>
-        <CardContent className="relative z-10">
-          {clientSecret && (
-            <Elements stripe={stripePromise} options={options}>
-              <CheckoutForm planId={planId} />
-            </Elements>
-          )}
+        <CardContent className="relative z-10 p-6">
+          <Elements stripe={stripePromise} options={options}>
+            <CheckoutForm planId={planId} />
+          </Elements>
         </CardContent>
         <CardFooter className="flex-col items-start">
           <p className="text-sm text-gray-500 mt-4">
