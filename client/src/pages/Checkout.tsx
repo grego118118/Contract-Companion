@@ -144,8 +144,7 @@ export default function Checkout() {
             <Button
               size="lg"
               onClick={() => {
-                // Store current location before redirecting
-                localStorage.setItem('redirectAfterLogin', window.location.pathname);
+                // Direct link to the login page with no fancy redirect logic
                 window.location.href = '/api/login';
               }}
               className="bg-primary hover:bg-primary/90"
