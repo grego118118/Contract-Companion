@@ -104,9 +104,15 @@ export default function Checkout() {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login and remember where to return
-    const returnUrl = `/checkout/${params?.plan || ''}`;
-    return <Redirect to={`/api/login?returnTo=${encodeURIComponent(returnUrl)}`} />;
+    // Direct redirect to login
+    window.location.href = "/api/login";
+    // Show a loading state while redirecting
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="ml-4">Redirecting to login...</div>
+      </div>
+    );
   }
 
   return (

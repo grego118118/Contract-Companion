@@ -9,13 +9,9 @@ const PricingPage = () => {
 
   // Simple function to handle plan selection
   const handlePlanSelect = (planId: string) => {
-    if (isAuthenticated) {
-      // Go directly to DirectCheckout component with plan ID
-      window.location.href = `/checkout/${planId}`;
-    } else {
-      // For not authenticated users, redirect to login 
-      window.location.href = `/api/login`;
-    }
+    // Direct approach - always go to the checkout page first
+    // Let the checkout page handle authentication if needed
+    window.location.href = `/checkout/${planId}`;
   };
 
   const individualPlans = [
