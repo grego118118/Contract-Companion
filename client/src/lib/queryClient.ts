@@ -12,16 +12,34 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
 
-  await throwIfResNotOk(res);
-  return res;
+    await throwIfResNotOk(res);
+    return res;
+  } catch (error) {
+    console.error(`API request error (${method} ${url}):`, error);
+    throw error;
+  }
 }
+
+// Define a stable fetch function that won't cause the React Query error
+const safeFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  try {
+    return await fetch(url, {
+      ...options,
+      credentials: "include",
+    });
+  } catch (error) {
+    console.error(`Fetch error for ${url}:`, error);
+    throw error;
+  }
+};
 
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
@@ -30,8 +48,8 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     try {
-      const res = await fetch(queryKey[0] as string, {
-        credentials: "include",
+      const url = queryKey[0] as string;
+      const res = await safeFetch(url, {
         headers: { "Cache-Control": "no-cache" }
       });
 
@@ -42,7 +60,11 @@ export const getQueryFn: <T>(options: {
       await throwIfResNotOk(res);
       return await res.json();
     } catch (error) {
-      console.error("Query fetch error:", error);
+      if (error instanceof Error) {
+        console.error("Query fetch error:", error.message);
+      } else {
+        console.error("Unknown query fetch error");
+      }
       throw error;
     }
   };
