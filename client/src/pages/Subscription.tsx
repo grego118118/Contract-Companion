@@ -85,7 +85,9 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ planId }) => {
     setErrorMessage(null);
     
     try {
-      const { error } = await stripe.confirmPayment({
+      // Use setupIntent confirmation instead of payment confirmation
+      // This works with our server-side setupIntent
+      const { error } = await stripe.confirmSetup({
         elements,
         confirmParams: {
           return_url: `${window.location.origin}/subscription/success?plan=${planId}`,
