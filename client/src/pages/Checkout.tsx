@@ -90,6 +90,11 @@ export default function Checkout() {
       console.log('Checkout response:', data);
       
       if (data.checkoutUrl) {
+        console.log('Redirecting to Stripe checkout:', data.checkoutUrl);
+        // Force redirect to the Stripe checkout URL
+        window.location.assign(data.checkoutUrl);
+        // As a fallback, provide a direct link
+        alert('If you are not redirected automatically, please click OK to go to the payment page.');
         window.location.href = data.checkoutUrl;
       } else {
         throw new Error('No checkout URL returned from server');
