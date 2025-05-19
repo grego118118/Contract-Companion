@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { CheckIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,15 @@ import { useAuth } from "@/hooks/useAuth";
 
 const PricingPage = () => {
   const { isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
+
+  const handlePlanSelect = (planId: string) => {
+    if (isAuthenticated) {
+      navigate(`/checkout?plan=${planId}`);
+    } else {
+      navigate("/api/login");
+    }
+  };
 
   const individualPlans = [
     {
@@ -22,7 +31,7 @@ const PricingPage = () => {
       ],
       cta: "Get Started",
       popular: false,
-      link: isAuthenticated ? "/checkout?plan=basic" : "/api/login"
+      planId: "basic"
     },
     {
       name: "Standard",
@@ -38,7 +47,7 @@ const PricingPage = () => {
       ],
       cta: "Choose Standard",
       popular: true,
-      link: isAuthenticated ? "/checkout?plan=standard" : "/api/login"
+      planId: "standard"
     },
     {
       name: "Premium",
@@ -55,7 +64,7 @@ const PricingPage = () => {
       ],
       cta: "Choose Premium",
       popular: false,
-      link: isAuthenticated ? "/checkout?plan=premium" : "/api/login"
+      planId: "premium"
     }
   ];
 
@@ -192,11 +201,12 @@ const PricingPage = () => {
                 </ul>
               </CardContent>
               <CardFooter>
-                <Link href={plan.link}>
-                  <Button className={`w-full ${plan.popular ? 'bg-primary' : ''}`}>
-                    {plan.cta}
-                  </Button>
-                </Link>
+                <Button 
+                  className={`w-full ${plan.popular ? 'bg-primary' : ''}`}
+                  onClick={() => handlePlanSelect(plan.planId)}
+                >
+                  {plan.cta}
+                </Button>
               </CardFooter>
             </Card>
           ))}
@@ -246,11 +256,12 @@ const PricingPage = () => {
                 </ul>
               </CardContent>
               <CardFooter>
-                <Link href={plan.link}>
-                  <Button className={`w-full ${plan.popular ? 'bg-primary' : ''}`}>
-                    {plan.cta}
-                  </Button>
-                </Link>
+                <Button 
+                  className={`w-full ${plan.popular ? 'bg-primary' : ''}`}
+                  onClick={() => navigate("/contact")}
+                >
+                  {plan.cta}
+                </Button>
               </CardFooter>
             </Card>
           ))}
@@ -321,11 +332,19 @@ const PricingPage = () => {
         <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
           Join thousands of union members who are already benefiting from clear, instant contract insights.
         </p>
-        <Link href={isAuthenticated ? "/contracts" : "/api/login"}>
-          <Button size="lg" className="bg-primary hover:bg-primary/90">
-            Start Your 7-Day Free Trial
-          </Button>
-        </Link>
+        <Button 
+          size="lg" 
+          className="bg-primary hover:bg-primary/90"
+          onClick={() => {
+            if (isAuthenticated) {
+              navigate("/my-contracts");
+            } else {
+              navigate("/api/login");
+            }
+          }}
+        >
+          Start Your 7-Day Free Trial
+        </Button>
         <p className="mt-4 text-sm text-gray-500">
           No credit card required. Cancel anytime.
         </p>
@@ -362,21 +381,6 @@ const PricingPage = () => {
           <li><strong>Comprehensive Coverage</strong>: Every aspect of your contract is analyzed and accessible, ensuring no benefits or rights are overlooked.</li>
           <li><strong>Empowered Decision-Making</strong>: Make informed decisions about grievances, benefits, and workplace rights with confidence.</li>
         </ul>
-        
-        <h3>Benefits for Union Representatives</h3>
-        <p>
-          Union representatives and shop stewards also benefit significantly:
-        </p>
-        <ul>
-          <li><strong>Reduced Administrative Burden</strong>: With members able to answer basic questions themselves, representatives can focus on complex cases and strategic initiatives.</li>
-          <li><strong>Improved Member Education</strong>: Better-informed members participate more actively in union activities and better understand the value of their union membership.</li>
-          <li><strong>Strategic Resource Allocation</strong>: Analytics help identify common member concerns, allowing unions to better allocate resources and focus bargaining priorities.</li>
-          <li><strong>Enhanced Member Satisfaction</strong>: Members who understand their benefits are more satisfied with their union representation and more likely to remain active participants.</li>
-        </ul>
-        
-        <p>
-          By leveraging AI technology specifically designed for labor contracts, unions can modernize their member services, improve satisfaction, and operate more efficiently in today's fast-paced work environment.
-        </p>
       </div>
     </div>
   );
