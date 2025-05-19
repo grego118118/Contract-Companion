@@ -20,8 +20,49 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2023-10-16" as any, // Cast to any to bypass type check
 });
 
-// The cost of subscription in cents
-const SUBSCRIPTION_PRICE = 1999; // $19.99 per month
+// Subscription pricing tiers in cents
+const SUBSCRIPTION_PRICES = {
+  basic: 999,    // $9.99 per month
+  standard: 1999, // $19.99 per month
+  premium: 2999,  // $29.99 per month
+};
+
+// Subscription plan features
+const SUBSCRIPTION_PLANS = {
+  basic: {
+    name: 'Basic',
+    description: 'Perfect for individual union members',
+    price: SUBSCRIPTION_PRICES.basic,
+    features: {
+      maxQueries: 20,
+      maxContracts: 1,
+      chatHistoryDays: 7,
+      modelTier: 'basic'
+    }
+  },
+  standard: {
+    name: 'Standard',
+    description: 'Perfect for active union members',
+    price: SUBSCRIPTION_PRICES.standard,
+    features: {
+      maxQueries: 50,
+      maxContracts: 3,
+      chatHistoryDays: 30,
+      modelTier: 'standard'
+    }
+  },
+  premium: {
+    name: 'Premium',
+    description: 'Unlimited access for engaged members',
+    price: SUBSCRIPTION_PRICES.premium,
+    features: {
+      maxQueries: -1, // unlimited
+      maxContracts: -1, // unlimited
+      chatHistoryDays: -1, // permanent
+      modelTier: 'premium'
+    }
+  }
+};
 
 // Setup multer for file uploads
 const upload = multer({
@@ -389,13 +430,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         await storage.updateUserSubscription(userId, {
           subscriptionStatus: "trial",
-          trialEndsAt: trialEnd
+          trialEndsAt: trialEnd,
+          planId: "standard" // Default to standard tier for trials
         });
         
         return res.json({
           status: "trial",
           trialEndsAt: trialEnd,
-          daysLeft: 7
+          daysLeft: 7,
+          planId: "standard"
         });
       }
       
@@ -416,6 +459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: "trial",
             trialEndsAt: trialEnd,
             daysLeft: 7,
+            planId: user.planId || "standard",
             message: "Your trial has been automatically extended."
           });
         }
@@ -425,7 +469,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({
           status: "trial",
           trialEndsAt: user.trialEndsAt,
-          daysLeft: daysLeft
+          daysLeft: daysLeft,
+          planId: user.planId || "standard"
         });
       }
       
@@ -433,15 +478,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.subscriptionStatus === "active" && user.stripeSubscriptionId) {
         try {
           const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+          
+          // Get plan details
+          let planId = user.planId || "standard";
+          
+          // If subscription has metadata with plan info, use that
+          if (subscription.metadata && subscription.metadata.planId) {
+            planId = subscription.metadata.planId as string;
+          }
+          
           return res.json({
             status: "active",
             subscriptionId: subscription.id,
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000)
+            currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+            planId: planId
           });
-        } catch (err) {
+        } catch (err: any) {
           console.error("Error fetching Stripe subscription:", err);
           return res.json({
             status: user.subscriptionStatus,
+            planId: user.planId || "standard",
             error: "Could not verify subscription status"
           });
         }
@@ -449,7 +505,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Default response
       return res.json({
-        status: user.subscriptionStatus || "unknown"
+        status: user.subscriptionStatus || "unknown",
+        planId: user.planId || "standard"
       });
     } catch (error) {
       console.error("Error checking subscription status:", error);
@@ -471,6 +528,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.subscriptionStatus === "active" && user.stripeSubscriptionId) {
         return res.status(400).json({ message: "User already has an active subscription" });
       }
+      
+      // Get the requested plan (default to standard)
+      const planId = (req.body.plan || 'standard') as keyof typeof SUBSCRIPTION_PLANS;
+      if (!SUBSCRIPTION_PLANS[planId]) {
+        return res.status(400).json({ message: "Invalid subscription plan" });
+      }
+      
+      const plan = SUBSCRIPTION_PLANS[planId];
       
       // Create or retrieve Stripe customer
       let customerId = user.stripeCustomerId;
@@ -500,11 +565,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             price_data: {
               currency: 'usd',
+              // @ts-ignore - product_data is valid but not in the types
               product_data: {
-                name: 'ContractCompanion Pro',
-                description: 'Monthly subscription to ContractCompanion Pro'
+                name: `ContractCompanion ${plan.name}`,
+                description: `Monthly subscription to ContractCompanion ${plan.name} - ${plan.description}`
               },
-              unit_amount: SUBSCRIPTION_PRICE,
+              unit_amount: plan.price,
               recurring: {
                 interval: 'month'
               }
@@ -516,25 +582,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           save_default_payment_method: 'on_subscription'
         },
         expand: ['latest_invoice.payment_intent'],
-        trial_period_days: 7 // 7-day free trial
+        trial_period_days: 7, // 7-day free trial
+        metadata: {
+          planId: planId,
+          planName: plan.name,
+          features: JSON.stringify(plan.features)
+        }
       });
       
       // Update user record with subscription info
-      const trialEnd = new Date(subscription.trial_end * 1000);
+      const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : new Date();
       await storage.updateUserSubscription(userId, {
         stripeSubscriptionId: subscription.id,
         subscriptionStatus: "trialing",
-        trialEndsAt: trialEnd
+        trialEndsAt: trialEnd,
+        planId: planId
       });
       
       // Return the client secret so the frontend can complete the payment
-      const invoice = subscription.latest_invoice as Stripe.Invoice;
-      const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+      const invoice = subscription.latest_invoice as any;
+      const paymentIntent = invoice.payment_intent as any;
       
       res.json({
         subscriptionId: subscription.id,
-        clientSecret: paymentIntent.client_secret,
-        trialEnd: trialEnd
+        clientSecret: paymentIntent?.client_secret,
+        trialEnd: trialEnd,
+        planId: planId
       });
     } catch (error) {
       console.error("Error creating subscription:", error);

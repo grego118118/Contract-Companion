@@ -79,6 +79,7 @@ export class DatabaseStorage implements IStorage {
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
     subscriptionStatus?: string;
+    planId?: string;
     trialEndsAt?: Date;
   }): Promise<User> {
     const [user] = await db

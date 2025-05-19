@@ -62,11 +62,11 @@ export async function trackQuery(userId: string): Promise<boolean> {
       return false;
     }
 
-    // Get monthly query count
-    const subscriptionType = user.subscriptionStatus || 'trial';
+    // Get the user's plan type - prefer planId over subscription status for limits
+    const planType = user.planId || 'standard';
     
     // If user has unlimited queries, no need to check limits
-    const limits = PLAN_LIMITS[subscriptionType];
+    const limits = PLAN_LIMITS[planType] || PLAN_LIMITS['standard'];
     if (limits.maxQueries === -1) {
       return true;
     }
