@@ -62,48 +62,69 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ planId }) => {
   const elements = useElements();
   const { toast } = useToast();
   
-  // Add this useEffect to help debug stripe elements
+  // Debug Stripe elements
   useEffect(() => {
-    if (!stripe || !elements) {
-      console.log('Stripe or Elements not initialized');
-    } else {
-      console.log('Stripe and Elements initialized successfully');
-    }
+    console.log('Stripe state:', !!stripe);
+    console.log('Elements state:', !!elements);
   }, [stripe, elements]);
   
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!stripe || !elements) {
+      setErrorMessage('Payment system is still initializing. Please try again in a moment.');
+      toast({
+        title: 'Not ready',
+        description: 'Payment system is still initializing. Please try again in a moment.',
+        variant: 'default',
+      });
       return;
     }
     
     setIsLoading(true);
     setErrorMessage(null);
     
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/subscription/success?plan=${planId}`,
-      },
-    });
-    
-    if (error) {
-      setErrorMessage(error.message || 'An unknown error occurred');
+    try {
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/subscription/success?plan=${planId}`,
+        },
+      });
+      
+      if (error) {
+        console.error('Payment confirmation error:', error);
+        setErrorMessage(error.message || 'An unknown error occurred');
+        toast({
+          title: 'Payment failed',
+          description: error.message || 'Please try again',
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      console.error('Unexpected Stripe error:', e);
+      setErrorMessage(e.message || 'An unexpected error occurred');
       toast({
-        title: 'Payment failed',
-        description: error.message || 'Please try again',
+        title: 'Error',
+        description: e.message || 'An unexpected error occurred',
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
   
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 min-h-[300px]">
-      <div className="w-full min-h-[200px] mb-4">
-        <PaymentElement />
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="p-4 border rounded-md" style={{ minHeight: '200px' }}>
+        <PaymentElement options={{
+          layout: 'tabs',
+          defaultValues: {
+            billingDetails: {
+              name: 'Union Member',
+            }
+          }
+        }} />
       </div>
       
       {errorMessage && (
