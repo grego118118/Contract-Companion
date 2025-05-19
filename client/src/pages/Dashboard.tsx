@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Link } from "wouter";
 import { Loader2, AlertCircle, PlusCircle, FileText, BarChart3, CreditCard, BookMarked } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDistanceToNow } from 'date-fns';
 
 // Usage chart
