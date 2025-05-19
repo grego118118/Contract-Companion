@@ -102,6 +102,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch contract" });
     }
   });
+  
+  // Serve contract PDF file
+  app.get("/api/contracts/:id/file", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const contractId = req.params.id;
+      
+      const contract = await storage.getContract(contractId);
+      
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      
+      if (contract.userId !== userId) {
+        return res.status(403).json({ message: "You don't have permission to access this contract" });
+      }
+      
+      // Check if file exists
+      if (!fs.existsSync(contract.filePath)) {
+        return res.status(404).json({ message: "Contract file not found" });
+      }
+      
+      // Set appropriate content type header
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${contract.name}"`);
+      
+      // Stream the file
+      const fileStream = fs.createReadStream(contract.filePath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("Error serving contract file:", error);
+      res.status(500).json({ message: "Failed to serve contract file" });
+    }
+  });
 
   // Upload a new contract
   app.post("/api/contracts/upload", isAuthenticated, upload.single("contract"), async (req: any, res) => {

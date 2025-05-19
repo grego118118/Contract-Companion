@@ -122,7 +122,7 @@ const ContractDetail = ({ params }: { params: { id: string } }) => {
         </TabsContent>
 
         <TabsContent value="view">
-          <PDFViewer url={contract.fileUrl} fileName={contract.name} />
+          <PDFViewer url={`/api/contracts/${contractId}/file`} fileName={contract.name} />
         </TabsContent>
       </Tabs>
     </div>
