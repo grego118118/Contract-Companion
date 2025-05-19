@@ -25,7 +25,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckIcon } from 'lucide-react';
 
 // Initialize Stripe with the public key
 const PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
@@ -58,84 +58,53 @@ interface CheckoutFormProps {
 const CheckoutForm: React.FC<CheckoutFormProps> = ({ planId }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const stripe = useStripe();
-  const elements = useElements();
   const { toast } = useToast();
   
-  // Debug Stripe elements
-  useEffect(() => {
-    console.log('Stripe state:', !!stripe);
-    console.log('Elements state:', !!elements);
-  }, [stripe, elements]);
-  
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    if (!stripe || !elements) {
-      setErrorMessage('Payment system is still initializing. Please try again in a moment.');
-      toast({
-        title: 'Not ready',
-        description: 'Payment system is still initializing. Please try again in a moment.',
-        variant: 'default',
-      });
-      return;
-    }
-    
+  const handleCheckout = async () => {
     setIsLoading(true);
     setErrorMessage(null);
     
     try {
-      // Use setupIntent confirmation instead of payment confirmation
-      // This works with our server-side setupIntent
-      const { error } = await stripe.confirmSetup({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/subscription/success?plan=${planId}`,
+      // Create checkout session on the server
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        credentials: 'include',
+        body: JSON.stringify({ plan: planId }),
       });
       
-      if (error) {
-        console.error('Payment confirmation error:', error);
-        setErrorMessage(error.message || 'An unknown error occurred');
-        toast({
-          title: 'Payment failed',
-          description: error.message || 'Please try again',
-          variant: 'destructive',
-        });
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to create checkout session');
       }
+      
+      const { checkoutUrl } = await response.json();
+      
+      // Redirect to Stripe's checkout page
+      window.location.href = checkoutUrl;
     } catch (e: any) {
-      console.error('Unexpected Stripe error:', e);
+      console.error('Checkout error:', e);
       setErrorMessage(e.message || 'An unexpected error occurred');
       toast({
         title: 'Error',
-        description: e.message || 'An unexpected error occurred',
+        description: e.message || 'Please try again',
         variant: 'destructive',
       });
-    } finally {
       setIsLoading(false);
     }
   };
   
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="p-4 border rounded-md" style={{ minHeight: '200px' }}>
-        <PaymentElement options={{
-          layout: 'tabs',
-          defaultValues: {
-            billingDetails: {
-              name: 'Union Member',
-            }
-          }
-        }} />
-      </div>
-      
+    <div className="space-y-6">
       {errorMessage && (
         <div className="text-sm text-red-600 p-2 bg-red-50 rounded">{errorMessage}</div>
       )}
       
       <Button
-        type="submit"
-        disabled={!stripe || isLoading}
+        onClick={handleCheckout}
+        disabled={isLoading}
         className="w-full"
       >
         {isLoading ? (
@@ -147,7 +116,7 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ planId }) => {
           'Subscribe Now'
         )}
       </Button>
-    </form>
+    </div>
   );
 };
 
@@ -432,17 +401,65 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
-          {clientSecret ? (
-            <div className="py-4 border border-gray-200 rounded-md mb-4" style={{ minHeight: '250px' }}>
-              <Elements stripe={stripePromise} options={options}>
-                <CheckoutForm planId={planId} />
-              </Elements>
+          <div className="py-6 mb-4">
+            <div className="space-y-4">
+              <div className="border rounded-md p-4 bg-slate-50">
+                <h3 className="font-medium mb-2">Plan Details</h3>
+                <ul className="space-y-2">
+                  {planId === 'basic' && (
+                    <>
+                      <li className="flex items-center gap-2">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                        <span>20 queries per month</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                        <span>1 contract upload</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                        <span>7-day chat history</span>
+                      </li>
+                    </>
+                  )}
+                  {planId === 'standard' && (
+                    <>
+                      <li className="flex items-center gap-2">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                        <span>50 queries per month</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                        <span>3 contract uploads</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                        <span>30-day chat history</span>
+                      </li>
+                    </>
+                  )}
+                  {planId === 'premium' && (
+                    <>
+                      <li className="flex items-center gap-2">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                        <span>Unlimited queries</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                        <span>Unlimited contract uploads</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckIcon className="h-4 w-4 text-green-500" />
+                        <span>Permanent chat history</span>
+                      </li>
+                    </>
+                  )}
+                </ul>
+              </div>
+              
+              <CheckoutForm planId={planId} />
             </div>
-          ) : (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-            </div>
-          )}
+          </div>
         </CardContent>
         <CardFooter className="flex-col items-start">
           <p className="text-sm text-gray-500 mt-4">
