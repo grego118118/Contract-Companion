@@ -21,16 +21,17 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route exact path="/" component={Home} />
       <Route path="/my-contracts" component={MyContracts} />
       <Route path="/contract/:id" component={ContractDetail} />
-      <Route path="/blog" component={Blog} />
       <Route path="/blog/:id" component={BlogPost} />
+      <Route path="/blog" component={Blog} />
       <Route path="/about" component={About} />
       <Route path="/pricing" component={Pricing} />
-      <Route path="/subscription" component={Subscription} />
-      <Route path="/checkout/:plan?" component={Checkout} />
       <Route path="/subscription/success" component={SubscriptionSuccess} />
+      <Route path="/subscription" component={Subscription} />
+      <Route path="/checkout/:plan" component={Checkout} />
+      <Route path="/checkout" component={Checkout} />
       <Route path="/dashboard" component={Dashboard} />
       <Route component={NotFound} />
     </Switch>
