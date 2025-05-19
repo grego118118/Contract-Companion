@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation, useRoute, Redirect } from 'wouter';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -11,6 +12,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import SubscriptionFeatures from '@/components/subscription/SubscriptionFeatures';
+import SubscriptionPlans from './SubscriptionPlans';
 import {
   Card,
   CardContent,
@@ -22,12 +24,35 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Redirect } from 'wouter';
+import { Loader2 } from 'lucide-react';
 
 // Initialize Stripe
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-const CheckoutForm = () => {
+// Plan details with Stripe price IDs
+const PRICE_IDS = {
+  basic: 'price_basic',      // Replace with actual Stripe price IDs
+  standard: 'price_standard',
+  premium: 'price_premium'
+};
+
+const PLAN_NAMES = {
+  basic: 'Basic',
+  standard: 'Standard',
+  premium: 'Premium'
+};
+
+const PLAN_PRICES = {
+  basic: '$9.99',
+  standard: '$19.99',
+  premium: '$29.99'
+};
+
+interface CheckoutFormProps {
+  planId: string;
+}
+
+const CheckoutForm: React.FC<CheckoutFormProps> = ({ planId }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const stripe = useStripe();
@@ -47,7 +72,7 @@ const CheckoutForm = () => {
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/subscription/success`,
+        return_url: `${window.location.origin}/subscription/success?plan=${planId}`,
       },
     });
     
@@ -77,11 +102,8 @@ const CheckoutForm = () => {
         className="w-full"
       >
         {isLoading ? (
-          <span className="flex items-center">
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+          <span className="flex items-center justify-center">
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             Processing...
           </span>
         ) : (
@@ -124,6 +146,12 @@ const SubscriptionStatus = () => {
     },
   });
   
+  // Upgrade subscription mutation
+  const [, setLocation] = useLocation();
+  const handleUpgrade = () => {
+    setLocation('/subscription?upgrade=true');
+  };
+  
   const handleCancel = () => {
     if (confirm('Are you sure you want to cancel your subscription?')) {
       cancelSubscription.mutate();
@@ -155,6 +183,11 @@ const SubscriptionStatus = () => {
     );
   }
   
+  // Get plan details
+  const planId = subscription.planId || 'standard';
+  const planName = PLAN_NAMES[planId as keyof typeof PLAN_NAMES] || 'Standard';
+  const planPrice = PLAN_PRICES[planId as keyof typeof PLAN_PRICES] || '$19.99';
+  
   return (
     <Card>
       <CardHeader>
@@ -174,7 +207,7 @@ const SubscriptionStatus = () => {
           )}
         </div>
         <CardDescription>
-          ContractCompanion Pro Plan - $19.99/month
+          ContractCompanion {planName} Plan - {planPrice}/month
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -214,8 +247,16 @@ const SubscriptionStatus = () => {
         )}
       </CardContent>
       
-      {(subscription.status === 'active' || subscription.status === 'canceling') && (
-        <CardFooter>
+      {(subscription.status === 'active' || subscription.status === 'canceling' || subscription.status === 'trial') && (
+        <CardFooter className="flex space-x-4 flex-wrap">
+          {subscription.status === 'active' && planId !== 'premium' && (
+            <Button 
+              onClick={handleUpgrade}
+            >
+              Upgrade Plan
+            </Button>
+          )}
+          
           {subscription.status === 'active' && (
             <Button 
               variant="outline" 
@@ -231,7 +272,8 @@ const SubscriptionStatus = () => {
   );
 };
 
-const NewSubscription = () => {
+const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string }) => {
+  const [planId, setPlanId] = useState<string>(selectedPlan);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const { toast } = useToast();
   
@@ -239,7 +281,10 @@ const NewSubscription = () => {
     // Create a subscription
     const createSubscription = async () => {
       try {
-        const response = await apiRequest('POST', '/api/subscription');
+        const response = await apiRequest('POST', '/api/subscription', { 
+          plan: planId 
+        });
+        
         const data = await response.json();
         setClientSecret(data.clientSecret);
       } catch (error: any) {
@@ -252,21 +297,32 @@ const NewSubscription = () => {
     };
     
     createSubscription();
-  }, [toast]);
+  }, [toast, planId]);
+  
+  const handlePlanSelect = (newPlanId: string) => {
+    setPlanId(newPlanId);
+  };
   
   if (!clientSecret) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Setting up your subscription</CardTitle>
-          <CardDescription>Please wait...</CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center p-6">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        </CardContent>
-      </Card>
+      <div className="space-y-8">
+        <SubscriptionPlans onPlanSelect={handlePlanSelect} selectedPlan={planId} />
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Setting up your subscription</CardTitle>
+            <CardDescription>Please wait while we prepare your payment details...</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center p-6">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
+  
+  const planName = PLAN_NAMES[planId as keyof typeof PLAN_NAMES];
+  const planPrice = PLAN_PRICES[planId as keyof typeof PLAN_PRICES];
   
   const options = {
     clientSecret,
@@ -276,25 +332,29 @@ const NewSubscription = () => {
   };
   
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Subscribe to ContractCompanion Pro</CardTitle>
-        <CardDescription>
-          $19.99/month after your 7-day free trial
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Elements stripe={stripePromise} options={options}>
-          <CheckoutForm />
-        </Elements>
-      </CardContent>
-      <CardFooter className="flex-col items-start">
-        <p className="text-sm text-gray-500 mt-4">
-          By subscribing, you agree to the terms of service and privacy policy.
-          Your subscription will automatically renew each month until canceled.
-        </p>
-      </CardFooter>
-    </Card>
+    <div className="space-y-8">
+      <SubscriptionPlans onPlanSelect={handlePlanSelect} selectedPlan={planId} />
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Subscribe to ContractCompanion {planName}</CardTitle>
+          <CardDescription>
+            {planPrice}/month after your 7-day free trial
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Elements stripe={stripePromise} options={options}>
+            <CheckoutForm planId={planId} />
+          </Elements>
+        </CardContent>
+        <CardFooter className="flex-col items-start">
+          <p className="text-sm text-gray-500 mt-4">
+            By subscribing, you agree to the terms of service and privacy policy.
+            Your subscription will automatically renew each month until canceled.
+          </p>
+        </CardFooter>
+      </Card>
+    </div>
   );
 };
 
@@ -304,6 +364,12 @@ const SubscriptionPage = () => {
     queryKey: ['/api/subscription'],
     enabled: isAuthenticated,
   });
+  
+  // Get URL parameters to see if an upgrade was requested
+  const [, params] = useRoute('/subscription:rest*');
+  const urlParams = new URLSearchParams(params?.rest || '');
+  const isUpgrading = urlParams.get('upgrade') === 'true';
+  const planFromUrl = urlParams.get('plan');
   
   // Handle authentication
   if (isLoading) {
@@ -319,24 +385,24 @@ const SubscriptionPage = () => {
   }
   
   return (
-    <div className="container max-w-3xl py-12">
-      <h1 className="text-3xl font-merriweather font-bold text-center mb-3">ContractCompanion Pro</h1>
+    <div className="container max-w-5xl py-12 px-4">
+      <h1 className="text-3xl font-merriweather font-bold text-center mb-3">ContractCompanion Subscription</h1>
       <p className="text-center text-gray-600 mb-8">Unlock the full power of AI for your union contracts</p>
       
       {isLoadingSubscription ? (
         <Skeleton className="h-64 w-full" />
       ) : (
         <div className="space-y-8">
-          {subscription && (
+          {subscription && !isUpgrading && (
             <SubscriptionStatus />
           )}
           
           {(!subscription || 
             subscription.status === 'trial_expired' || 
-            subscription.status === 'canceled') && (
+            subscription.status === 'canceled' || 
+            isUpgrading) && (
             <>
-              <SubscriptionFeatures />
-              <NewSubscription />
+              <NewSubscription selectedPlan={planFromUrl || undefined} />
             </>
           )}
         </div>
