@@ -92,6 +92,11 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Add a plain login test route
+  app.get('/api/login-test', (req, res) => {
+    res.send('Login page - this is a test');
+  });
+  
   // Auth middleware
   await setupAuth(app);
 

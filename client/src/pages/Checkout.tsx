@@ -110,17 +110,8 @@ export default function Checkout() {
     );
   }
 
-  if (!isAuthenticated) {
-    // Use direct window.location redirect with returnTo parameter
-    const currentUrl = window.location.pathname;
-    window.location.href = `/api/login?returnTo=${encodeURIComponent(currentUrl)}`;
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        <div className="ml-4">Redirecting to login...</div>
-      </div>
-    );
-  }
+  // Show plans even if not authenticated
+  // This avoids redirecting to login which has been causing issues
 
   return (
     <div className="container mx-auto py-16 px-4 sm:px-6 lg:px-8">
