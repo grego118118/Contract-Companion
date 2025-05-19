@@ -256,13 +256,13 @@ const MyContracts = () => {
                       <div className="flex justify-between">
                         <Button
                           variant="outline"
-                          onClick={() => window.open(contract.fileUrl, '_blank')}
+                          onClick={() => setLocation(`/contract/${contract.id}?tab=view`)}
                         >
-                          View PDF
+                          View Contract
                         </Button>
                         <Button
                           className="bg-primary hover:bg-primary/90"
-                          onClick={() => setLocation(`/contract/${contract.id}`)}
+                          onClick={() => setLocation(`/contract/${contract.id}?tab=chat`)}
                         >
                           Chat About Contract
                         </Button>

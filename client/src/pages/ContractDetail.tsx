@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,10 +12,18 @@ import { FileText, ChevronLeft } from "lucide-react";
 
 const ContractDetail = ({ params }: { params: { id: string } }) => {
   const contractId = params.id;
-  const [activeTab, setActiveTab] = useState("chat");
   const [, setLocation] = useLocation();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  
+  // Get tab from URL query parameter
+  const getTabFromURL = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get('tab');
+    return tab === 'view' ? 'view' : 'chat'; // Default to chat if not specified or invalid
+  };
+  
+  const [activeTab, setActiveTab] = useState(getTabFromURL());
 
   // Fetch contract data
   const {
