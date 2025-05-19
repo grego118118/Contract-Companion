@@ -131,8 +131,32 @@ export default function Checkout() {
     );
   }
 
-  // Show plans even if not authenticated
-  // This avoids redirecting to login which has been causing issues
+  if (!isAuthenticated) {
+    // Add a login button that properly redirects and preserves the current page
+    return (
+      <div className="container mx-auto py-16 px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-merriweather font-bold">Login Required</h2>
+          <p className="mt-4 text-lg text-gray-600">
+            Please login to access our subscription plans
+          </p>
+          <div className="mt-8">
+            <Button
+              size="lg"
+              onClick={() => {
+                // Store current location before redirecting
+                localStorage.setItem('redirectAfterLogin', window.location.pathname);
+                window.location.href = '/api/login';
+              }}
+              className="bg-primary hover:bg-primary/90"
+            >
+              Login Now
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-16 px-4 sm:px-6 lg:px-8">

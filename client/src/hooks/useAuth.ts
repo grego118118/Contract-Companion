@@ -11,12 +11,19 @@ export function useAuth() {
   const refreshAuth = () => {
     return refetch();
   };
+  
+  // Login helper function
+  const login = (returnPath?: string) => {
+    const returnTo = returnPath || window.location.pathname;
+    window.location.href = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
+  };
 
   return {
     user,
-    isLoading,
+    isLoading, 
     error,
     refreshAuth,
+    login,
     isAuthenticated: !!user,
   };
 }
