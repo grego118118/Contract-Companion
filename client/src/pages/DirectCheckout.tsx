@@ -66,12 +66,13 @@ export default function DirectCheckout() {
       const data = await response.json();
       console.log('Checkout response:', data);
       
-      if (data && data.checkoutUrl) {
-        // Use window.location.assign for more reliable navigation
-        window.location.assign(data.checkoutUrl);
-      } else {
-        throw new Error('No checkout URL returned from server');
-      }
+      console.log('Received checkout URL:', data.checkoutUrl);
+      
+      // Add a small delay before redirecting (makes browser happier)
+      setTimeout(() => {
+        // Open in a new window instead of redirecting current window
+        window.open(data.checkoutUrl, '_blank');
+      }, 100);
     } catch (error) {
       console.error('Checkout error:', error);
       alert('Could not start the subscription process. Please try again.');
