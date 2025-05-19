@@ -63,8 +63,15 @@ export default function DirectCheckout() {
         throw new Error('Failed to create checkout session');
       }
       
-      const { checkoutUrl } = await response.json();
-      window.location.href = checkoutUrl;
+      const data = await response.json();
+      console.log('Checkout response:', data);
+      
+      if (data && data.checkoutUrl) {
+        // Use window.location.assign for more reliable navigation
+        window.location.assign(data.checkoutUrl);
+      } else {
+        throw new Error('No checkout URL returned from server');
+      }
     } catch (error) {
       console.error('Checkout error:', error);
       alert('Could not start the subscription process. Please try again.');
