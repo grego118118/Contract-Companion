@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, Redirect } from 'wouter';
 import { loadStripe } from '@stripe/stripe-js';
@@ -28,8 +28,9 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 
 // Initialize Stripe with the public key
-console.log('Using Stripe key:', import.meta.env.VITE_STRIPE_PUBLIC_KEY);
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+const PUBLIC_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+console.log('Initializing Stripe with public key:', PUBLIC_KEY);
+const stripePromise = loadStripe(PUBLIC_KEY);
 
 // Plan details with Stripe price IDs
 const PRICE_IDS = {
@@ -292,47 +293,49 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  useEffect(() => {
-    // Create a subscription
-    const createSubscription = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        console.log('Creating subscription for plan:', planId);
-        const response = await apiRequest('POST', '/api/subscription', { 
-          plan: planId 
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to create subscription');
-        }
-        
-        const data = await response.json();
-        console.log('Subscription created:', data);
-        
-        if (data && data.clientSecret) {
-          setClientSecret(data.clientSecret);
-        } else {
-          console.error('No client secret in response:', data);
-          throw new Error('No client secret returned from server');
-        }
-      } catch (error: any) {
-        console.error('Subscription creation error:', error);
-        setError(error.message || 'Could not create subscription');
-        toast({
-          title: 'Error',
-          description: error.message || 'Could not create subscription',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const createSubscription = useCallback(async (plan: string) => {
+    setIsLoading(true);
+    setError(null);
     
-    createSubscription();
-  }, [toast, planId]);
+    try {
+      console.log('Creating subscription for plan:', plan);
+      const response = await apiRequest('POST', '/api/subscription', { 
+        plan: plan 
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create subscription');
+      }
+      
+      const data = await response.json();
+      console.log('Subscription created:', data);
+      
+      if (data && data.clientSecret) {
+        setClientSecret(data.clientSecret);
+        return data.clientSecret;
+      } else {
+        console.error('No client secret in response:', data);
+        throw new Error('No client secret returned from server');
+      }
+    } catch (error: any) {
+      console.error('Subscription creation error:', error);
+      setError(error.message || 'Could not create subscription');
+      toast({
+        title: 'Error',
+        description: error.message || 'Could not create subscription',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+  
+  // Create subscription when component mounts or plan changes
+  useEffect(() => {
+    createSubscription(planId);
+  }, [createSubscription, planId]);
   
   const handlePlanSelect = (newPlanId: string) => {
     setPlanId(newPlanId);
@@ -405,10 +408,18 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
             {planPrice}/month after your 7-day free trial
           </CardDescription>
         </CardHeader>
-        <CardContent className="relative z-10 p-6">
-          <Elements stripe={stripePromise} options={options}>
-            <CheckoutForm planId={planId} />
-          </Elements>
+        <CardContent className="p-6">
+          {clientSecret ? (
+            <div className="py-4 border border-gray-200 rounded-md mb-4" style={{ minHeight: '250px' }}>
+              <Elements stripe={stripePromise} options={options}>
+                <CheckoutForm planId={planId} />
+              </Elements>
+            </div>
+          ) : (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex-col items-start">
           <p className="text-sm text-gray-500 mt-4">
