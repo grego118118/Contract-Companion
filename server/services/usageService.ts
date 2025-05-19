@@ -107,11 +107,20 @@ export async function getUserLimits(userId: string): Promise<UsageLimits> {
       return PLAN_LIMITS['trial']; // Default to trial limits
     }
 
+    // Use the planId field first, then fall back to subscription status
+    const planType = user.planId || 'standard';
+    
+    // Check if the plan exists in our limits map
+    if (PLAN_LIMITS[planType]) {
+      return PLAN_LIMITS[planType];
+    }
+    
+    // Fall back to subscription status if planId doesn't match
     const subscriptionType = user.subscriptionStatus || 'trial';
-    return PLAN_LIMITS[subscriptionType] || PLAN_LIMITS['trial'];
+    return PLAN_LIMITS[subscriptionType] || PLAN_LIMITS['standard'];
   } catch (error) {
     console.error('Error getting user limits:', error);
-    return PLAN_LIMITS['trial']; // Default to trial limits
+    return PLAN_LIMITS['standard']; // Default to standard limits
   }
 }
 
@@ -171,7 +180,9 @@ export async function pruneOldChatMessages(): Promise<void> {
     const userList = await db.select().from(users);
     
     for (const user of userList) {
-      const limits = PLAN_LIMITS[user.subscriptionStatus || 'trial'];
+      // Use planId first, then fallback to subscription status
+      const planType = user.planId || 'standard';
+      const limits = PLAN_LIMITS[planType] || PLAN_LIMITS[user.subscriptionStatus || 'trial'] || PLAN_LIMITS['standard'];
       
       // If user has permanent chat history, skip
       if (limits.chatHistoryDays === -1) continue;
