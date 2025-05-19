@@ -11,6 +11,7 @@ import ContractDetail from "@/pages/ContractDetail";
 import Blog from "@/pages/Blog";
 import BlogPost from "@/pages/BlogPost";
 import About from "@/pages/About";
+import Pricing from "@/pages/Pricing";
 import Subscription from "@/pages/Subscription";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import NotFound from "@/pages/not-found";
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/blog" component={Blog} />
       <Route path="/blog/:id" component={BlogPost} />
       <Route path="/about" component={About} />
+      <Route path="/pricing" component={Pricing} />
       <Route path="/subscription" component={Subscription} />
       <Route path="/subscription/success" component={SubscriptionSuccess} />
       <Route component={NotFound} />
