@@ -15,6 +15,7 @@ import Pricing from "@/pages/Pricing";
 import Subscription from "@/pages/Subscription";
 import DirectCheckout from "@/pages/DirectCheckout";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
+import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/subscription" component={Subscription} />
       <Route path="/checkout" component={DirectCheckout} />
       <Route path="/subscription/success" component={SubscriptionSuccess} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route component={NotFound} />
     </Switch>
   );
