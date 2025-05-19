@@ -688,7 +688,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Create a checkout session
+      // Create a checkout session with proper configuration
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],
@@ -698,9 +698,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               currency: 'usd',
               product_data: {
                 name: `ContractCompanion ${plan.name} Plan`,
-                description: plan.description
+                description: plan.description || `${plan.name} subscription with 7-day free trial`
               },
-              unit_amount: plan.price,
+              unit_amount: Math.round(plan.price * 100), // Convert dollars to cents
               recurring: {
                 interval: 'month'
               }
@@ -709,8 +709,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         ],
         mode: 'subscription',
-        success_url: `${req.protocol}://${req.hostname}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${req.protocol}://${req.hostname}/subscription`,
+        success_url: `https://${req.hostname}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `https://${req.hostname}/subscription`,
         subscription_data: {
           trial_period_days: 7,
           metadata: {
@@ -721,7 +721,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: {
           userId: user.id,
           planId: planId
-        }
+        },
+        allow_promotion_codes: true,
+        billing_address_collection: 'auto'
       });
       
       res.json({ checkoutUrl: session.url });
