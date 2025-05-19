@@ -47,23 +47,27 @@ const PLANS = [
 export default function DirectCheckout() {
   const { isAuthenticated, isLoading } = useAuth();
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [location] = useLocation();
-
-  // Extract the plan from URL query parameters
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const planParam = params.get('plan');
-    
-    if (planParam && PLANS.some(plan => plan.id === planParam)) {
-      setSelectedPlan(planParam);
+  
+  // Parse the plan ID from the URL query parameters
+  const getSelectedPlan = () => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const planParam = params.get('plan');
+      return planParam && PLANS.some(plan => plan.id === planParam) ? planParam : null;
     }
-  }, [location]);
+    return null;
+  };
 
   const handleSubscribe = async (planId: string) => {
+    if (!planId) return;
+    
+    // Prevent duplicate processing
+    if (processingPlan) return;
+    
     setProcessingPlan(planId);
     
     try {
+      console.log('Creating checkout session for plan:', planId);
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,32 +76,38 @@ export default function DirectCheckout() {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to create checkout session');
+        throw new Error(`Failed to create checkout session: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
       console.log('Checkout response:', data);
       
-      console.log('Received checkout URL:', data.checkoutUrl);
-      
-      // Add a small delay before redirecting (makes browser happier)
-      setTimeout(() => {
-        // Open in a new window instead of redirecting current window
-        window.open(data.checkoutUrl, '_blank');
-      }, 100);
+      if (data.checkoutUrl) {
+        console.log('Received checkout URL:', data.checkoutUrl);
+        
+        // Add a small delay before redirecting
+        setTimeout(() => {
+          // Open in a new window
+          window.open(data.checkoutUrl, '_blank');
+        }, 100);
+      } else {
+        throw new Error('No checkout URL returned from server');
+      }
     } catch (error) {
       console.error('Checkout error:', error);
       alert('Could not start the subscription process. Please try again.');
+    } finally {
       setProcessingPlan(null);
     }
   };
 
-  // Auto-subscribe to the plan specified in URL if one is provided
+  // Process plan selection on initial load
   useEffect(() => {
+    const selectedPlan = getSelectedPlan();
     if (selectedPlan && isAuthenticated && !processingPlan) {
       handleSubscribe(selectedPlan);
     }
-  }, [selectedPlan, isAuthenticated]);
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (

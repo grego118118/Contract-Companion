@@ -11,9 +11,10 @@ const PricingPage = () => {
 
   const handlePlanSelect = (planId: string) => {
     if (isAuthenticated) {
-      navigate(`/checkout?plan=${planId}`);
+      // Direct access to ensure the URL parameters are included
+      window.location.href = `/checkout?plan=${planId}`;
     } else {
-      navigate("/api/login");
+      window.location.href = "/api/login";
     }
   };
 
