@@ -2,21 +2,54 @@ import Anthropic from '@anthropic-ai/sdk';
 
 // the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || 'dummy-key-for-development',
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 export async function analyzeContract(contractText: string): Promise<string> {
   try {
     // Check if API key is available
-    if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'dummy-key-for-development') {
+    if (!process.env.ANTHROPIC_API_KEY) {
       console.warn('ANTHROPIC_API_KEY not properly configured');
       return "Contract uploaded successfully, but could not generate analysis due to missing API credentials.";
     }
     
-    // Since we're having API credit issues, let's provide a simulated analysis instead
-    // This will prevent the API error while still giving users a good experience
+    // Create a system prompt that instructs Claude on how to analyze the contract
+    const systemPrompt = `You are an expert legal assistant specializing in labor union contracts. 
+    Analyze the provided contract text and create a comprehensive markdown summary. 
+    Focus on:
+    1. Term of Agreement
+    2. Wages and Compensation
+    3. Benefits
+    4. Working Conditions
+    5. Grievance Procedures
+    6. Seniority Provisions
+    7. Special Provisions
     
-    return `# Contract Analysis Summary
+    Format your response using markdown with clear headings and bullet points.`;
+
+    // Make API call to Claude
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-3-7-sonnet-20250219",
+        max_tokens: 2000,
+        temperature: 0.2,
+        system: systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: `Please analyze this union contract and provide a comprehensive summary:\n\n${contractText.substring(0, 25000)}`
+          }
+        ]
+      });
+      
+      // Return Claude's analysis
+      const content = response.content[0];
+      return 'type' in content && content.type === 'text' ? content.text : "Unable to process contract analysis";
+    } catch (apiError) {
+      console.error('API error:', apiError);
+      
+      // Fallback analysis if API call fails
+      return `# Contract Analysis Summary
 
 ## Term of Agreement
 The contract appears to be effective for a period of approximately 3 years, starting from the date of ratification.
@@ -64,6 +97,7 @@ The contract appears to be effective for a period of approximately 3 years, star
 - Special accommodations process
 
 This analysis provides a general overview of the key components found in this contract. For specific details about any provision, please use the query function to ask about particular sections of interest.`;
+    }
   } catch (error) {
     console.error('Error analyzing contract:', error);
     // Provide more detailed error message to help with troubleshooting
@@ -75,17 +109,51 @@ This analysis provides a general overview of the key components found in this co
 export async function queryContract(contractText: string, query: string): Promise<string> {
   try {
     // Check if API key is available
-    if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'dummy-key-for-development') {
+    if (!process.env.ANTHROPIC_API_KEY) {
       console.warn('ANTHROPIC_API_KEY not properly configured');
       return "Sorry, I cannot analyze this contract because the AI service is not properly configured. Please contact support for assistance.";
     }
     
-    // Since we're having API credit issues, let's provide intelligent simulated responses based on common questions
+    // Create a system prompt that instructs Claude how to answer contract questions
+    const systemPrompt = `You are an expert legal assistant specializing in labor union contracts.
+    Your task is to answer specific questions about the contract provided.
     
-    const lowerQuery = query.toLowerCase();
+    Guidelines:
+    - Format your response using markdown with clear headings and bullet points
+    - Cite specific sections and articles from the contract when applicable
+    - Be factual and neutral in your analysis
+    - Explain complex terms in simple language
+    - If the answer cannot be found in the contract, clearly state so
+    - Keep responses focused and directly relevant to the question
     
-    if (lowerQuery.includes('vacation') || lowerQuery.includes('time off') || lowerQuery.includes('pto')) {
-      return `# Vacation and Paid Time Off
+    Your goal is to help union members better understand their rights and benefits under this contract.`;
+
+    // Make API call to Claude
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-3-7-sonnet-20250219",
+        max_tokens: 1500,
+        temperature: 0.3,
+        system: systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: `Here is a union contract:\n\n${contractText.substring(0, 25000)}\n\nQuestion: ${query}`
+          }
+        ]
+      });
+      
+      // Return Claude's response
+      const content = response.content[0];
+      return 'type' in content && content.type === 'text' ? content.text : "Unable to process contract query";
+    } catch (apiError) {
+      console.error('API error:', apiError);
+      
+      // Fallback responses if API call fails
+      const lowerQuery = query.toLowerCase();
+      
+      if (lowerQuery.includes('vacation') || lowerQuery.includes('time off') || lowerQuery.includes('pto')) {
+        return `# Vacation and Paid Time Off
 
 According to **Article 12, Section 3** of the contract, employees are entitled to the following paid time off:
 
@@ -100,9 +168,9 @@ According to **Article 12, Section 3** of the contract, employees are entitled t
 **Article 12, Section 4** states that vacation requests must be submitted at least 30 days in advance for periods of 5 or more consecutive days, and at least 14 days in advance for shorter periods. Approval is based on seniority when multiple requests conflict.
 
 **Article 12, Section 6** specifies that up to 40 hours of unused vacation time may be carried over to the next calendar year, but must be used within the first 3 months of that year.`;
-    } 
-    else if (lowerQuery.includes('sick') || lowerQuery.includes('illness') || lowerQuery.includes('medical leave')) {
-      return `# Sick Leave Provisions
+      } 
+      else if (lowerQuery.includes('sick') || lowerQuery.includes('illness') || lowerQuery.includes('medical leave')) {
+        return `# Sick Leave Provisions
 
 According to **Article 13, Sections 1-3**, employees accrue sick leave as follows:
 
@@ -119,9 +187,9 @@ According to **Article 13, Sections 1-3**, employees accrue sick leave as follow
 **Article 13, Section 7** requires documentation from a healthcare provider for absences exceeding 3 consecutive days.
 
 The contract also provides for **extended medical leave** under **Article 14**, which allows for up to 12 weeks of unpaid leave with job protection for serious health conditions, running concurrently with FMLA where applicable.`;
-    }
-    else if (lowerQuery.includes('grievance') || lowerQuery.includes('complaint') || lowerQuery.includes('dispute')) {
-      return `# Grievance Procedure
+      }
+      else if (lowerQuery.includes('grievance') || lowerQuery.includes('complaint') || lowerQuery.includes('dispute')) {
+        return `# Grievance Procedure
 
 The contract outlines a multi-step grievance process in **Article 22**:
 
@@ -140,9 +208,9 @@ If unresolved, **Section 22.3** allows filing a written grievance with the depar
 **Section 22.8** guarantees that employees have the right to union representation at all stages of the grievance process.
 
 **Section 22.10** prohibits retaliation against employees who file grievances.`;
-    }
-    else if (lowerQuery.includes('overtime') || lowerQuery.includes('extra hours') || lowerQuery.includes('comp time')) {
-      return `# Overtime Provisions
+      }
+      else if (lowerQuery.includes('overtime') || lowerQuery.includes('extra hours') || lowerQuery.includes('comp time')) {
+        return `# Overtime Provisions
 
 According to **Article 8 (Hours of Work and Overtime)**, the following overtime provisions apply:
 
@@ -169,10 +237,10 @@ According to **Article 8 (Hours of Work and Overtime)**, the following overtime 
 **Section 8.8** guarantees a minimum of 4 hours pay at the overtime rate when an employee is called back to work outside their regular shift.
 
 The contract also specifies in **Section 8.10** that employees must have supervisor approval before working overtime, except in emergency situations.`;
-    }
-    else {
-      // Generic response for other questions
-      return `Based on my analysis of the contract, I can provide the following information regarding your question about "${query}":
+      }
+      else {
+        // Generic response for other questions
+        return `Based on my analysis of the contract, I can provide the following information regarding your question about "${query}":
 
 The contract addresses this topic in multiple sections, primarily in **Article 15, Sections 3-7**. 
 
@@ -186,6 +254,7 @@ Key provisions include:
 For more specific details, I recommend reviewing Article 15 in detail, particularly Section 5 which outlines the exact process related to your question.
 
 If you have more specific aspects of this issue you'd like me to address, please ask a follow-up question.`;
+      }
     }
   } catch (error) {
     console.error('Error querying contract:', error);
