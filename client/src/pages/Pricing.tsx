@@ -9,10 +9,15 @@ const PricingPage = () => {
   const { isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Updated function to handle plan selection using wouter
+  // Updated function to handle plan selection with authentication check
   const handlePlanSelect = (planId: string) => {
-    // Use wouter's navigation instead of direct window.location
-    setLocation(`/checkout/${planId}`);
+    if (isAuthenticated) {
+      // If already authenticated, use wouter's navigation
+      setLocation(`/checkout/${planId}`);
+    } else {
+      // If not authenticated, redirect to login with returnTo parameter
+      window.location.href = `/api/login?returnTo=/checkout/${planId}`;
+    }
   };
 
   const individualPlans = [

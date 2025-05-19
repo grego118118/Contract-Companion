@@ -103,20 +103,34 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    // Store the return URL in the session if provided
+    // Store the current URL in the session if returnTo is not provided
     if (req.query.returnTo) {
       // Need to cast as any since we're adding custom properties
       (req.session as any).returnTo = req.query.returnTo;
+    } else if (req.headers.referer) {
+      // If no returnTo is provided, use the referrer URL
+      const refererUrl = new URL(req.headers.referer);
+      // Only store path for same-origin redirects
+      if (refererUrl.hostname === req.hostname) {
+        (req.session as any).returnTo = refererUrl.pathname + refererUrl.search;
+      }
     }
     
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
+    // Save the session before continuing with authentication
+    req.session.save((err) => {
+      if (err) {
+        console.error("Error saving session:", err);
+      }
+      
+      passport.authenticate(`replitauth:${req.hostname}`, {
+        prompt: "login consent",
+        scope: ["openid", "email", "profile", "offline_access"],
+      })(req, res, next);
+    });
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, (err, user, info) => {
+    passport.authenticate(`replitauth:${req.hostname}`, (err: Error | null, user: Express.User | undefined, info: any) => {
       if (err) {
         console.error("Authentication error:", err);
         return res.redirect("/api/login");
@@ -137,6 +151,8 @@ export async function setupAuth(app: Express) {
         // Check if there's a return URL in the session
         const returnTo = (req.session as any).returnTo || "/";
         delete (req.session as any).returnTo;
+        
+        console.log("Authentication successful, redirecting to:", returnTo);
         
         // Redirect to the return URL or home page
         return res.redirect(returnTo);
