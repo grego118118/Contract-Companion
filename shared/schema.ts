@@ -59,6 +59,7 @@ export const chatMessages = pgTable("chat_messages", {
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   role: varchar("role").notNull(), // 'user' or 'assistant'
   content: text("content").notNull(),
+  saved: boolean("saved").default(false), // Whether the message has been saved by the user
   createdAt: timestamp("created_at").defaultNow(),
 });
 

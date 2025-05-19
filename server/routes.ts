@@ -820,6 +820,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Return a 200 response
     res.send({ received: true });
   });
+  
+  // Dashboard Routes
+  
+  // Get user usage data for dashboard
+  app.get("/api/usage", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get user plan features/limits
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const userPlanId = user.subscriptionStatus === "active" || user.subscriptionStatus === "trialing" 
+        ? user.planId || "basic" 
+        : "basic";
+        
+      const limits = SUBSCRIPTION_PLANS[userPlanId]?.features || SUBSCRIPTION_PLANS.basic.features;
+      
+      // Get query count for current month
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const queriesUsed = await storage.getUserMonthlyQueryCount(userId, currentMonth, currentYear);
+      
+      res.json({
+        queriesUsed,
+        limits,
+        planId: userPlanId
+      });
+    } catch (error) {
+      console.error("Error fetching usage data:", error);
+      res.status(500).json({ message: "Error fetching usage data" });
+    }
+  });
+  
+  // Get user's saved chat messages
+  app.get("/api/saved-chats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const savedChats = await storage.getUserSavedChatMessages(userId);
+      
+      // For each saved chat, get the contract name
+      const enrichedChats = await Promise.all(
+        savedChats.map(async (chat) => {
+          const contract = await storage.getContract(chat.contractId);
+          return {
+            ...chat,
+            contractName: contract?.name || "Unknown Contract"
+          };
+        })
+      );
+      
+      res.json(enrichedChats);
+    } catch (error) {
+      console.error("Error fetching saved chats:", error);
+      res.status(500).json({ message: "Error fetching saved chats" });
+    }
+  });
+  
+  // Save/unsave chat messages
+  app.post("/api/chats/:id/save", isAuthenticated, async (req: any, res) => {
+    try {
+      const messageId = req.params.id;
+      const userId = req.user.claims.sub;
+      
+      await storage.saveChatMessage(messageId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving chat message:", error);
+      res.status(500).json({ message: "Error saving chat message" });
+    }
+  });
+  
+  app.post("/api/chats/:id/unsave", isAuthenticated, async (req: any, res) => {
+    try {
+      const messageId = req.params.id;
+      const userId = req.user.claims.sub;
+      
+      await storage.unsaveChatMessage(messageId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unsaving chat message:", error);
+      res.status(500).json({ message: "Error unsaving chat message" });
+    }
+  });
+  
+  // Create Stripe Customer Portal session
+  app.post("/api/create-portal-session", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeCustomerId) {
+        return res.status(400).json({ message: "No stripe customer ID found" });
+      }
+      
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${req.protocol}://${req.get('host')}/dashboard`,
+      });
+      
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating portal session:", error);
+      res.status(500).json({ message: "Error creating portal session" });
+    }
+  });
+  
+  // Cancel subscription
+  app.post("/api/cancel-subscription", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !user.stripeSubscriptionId) {
+        return res.status(400).json({ message: "No subscription found" });
+      }
+      
+      // Cancel at period end instead of immediately
+      await stripe.subscriptions.update(user.stripeSubscriptionId, {
+        cancel_at_period_end: true
+      });
+      
+      // Update user subscription status
+      await storage.updateUserSubscription(userId, {
+        subscriptionStatus: "canceled"
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error canceling subscription:", error);
+      res.status(500).json({ message: "Error canceling subscription" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

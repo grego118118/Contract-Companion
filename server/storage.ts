@@ -28,6 +28,7 @@ export interface IStorage {
     stripeSubscriptionId?: string;
     subscriptionStatus?: string;
     trialEndsAt?: Date;
+    planId?: string;
   }): Promise<User>;
   
   // Contract operations
@@ -40,6 +41,13 @@ export interface IStorage {
   getChatMessage(id: number | string): Promise<ChatMessage | undefined>;
   getContractChatHistory(contractId: number | string): Promise<ChatMessage[]>;
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  getUserSavedChatMessages(userId: string): Promise<ChatMessage[]>;
+  saveChatMessage(messageId: number | string, userId: string): Promise<void>;
+  unsaveChatMessage(messageId: number | string, userId: string): Promise<void>;
+  
+  // Usage tracking
+  getUserMonthlyQueryCount(userId: string, month: number, year: number): Promise<number>;
+  trackQuery(userId: string): Promise<void>;
   
   // Blog operations
   getBlogPost(id: number | string): Promise<BlogPost | undefined>;
@@ -182,6 +190,90 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return message;
+  }
+  
+  async getUserSavedChatMessages(userId: string): Promise<ChatMessage[]> {
+    const savedMessages = await db
+      .select()
+      .from(chatMessages)
+      .where(and(
+        eq(chatMessages.saved, true),
+        eq(chatMessages.userId, userId),
+        eq(chatMessages.role, 'assistant')
+      ))
+      .orderBy(desc(chatMessages.createdAt));
+      
+    return savedMessages;
+  }
+  
+  async saveChatMessage(messageId: number | string, userId: string): Promise<void> {
+    const msgId = typeof messageId === 'string' ? parseInt(messageId, 10) : messageId;
+    
+    // Check if the message belongs to the user
+    const [message] = await db
+      .select()
+      .from(chatMessages)
+      .where(and(
+        eq(chatMessages.id, msgId),
+        eq(chatMessages.userId, userId)
+      ));
+      
+    if (!message) {
+      throw new Error('Message not found or does not belong to user');
+    }
+    
+    await db
+      .update(chatMessages)
+      .set({ saved: true })
+      .where(eq(chatMessages.id, msgId));
+  }
+  
+  async unsaveChatMessage(messageId: number | string, userId: string): Promise<void> {
+    const msgId = typeof messageId === 'string' ? parseInt(messageId, 10) : messageId;
+    
+    // Check if the message belongs to the user
+    const [message] = await db
+      .select()
+      .from(chatMessages)
+      .where(and(
+        eq(chatMessages.id, msgId),
+        eq(chatMessages.userId, userId)
+      ));
+      
+    if (!message) {
+      throw new Error('Message not found or does not belong to user');
+    }
+    
+    await db
+      .update(chatMessages)
+      .set({ saved: false })
+      .where(eq(chatMessages.id, msgId));
+  }
+  
+  // Usage tracking operations
+  async getUserMonthlyQueryCount(userId: string, month: number, year: number): Promise<number> {
+    // Get the first and last day of the month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+    
+    // Count user messages for the specified month
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(chatMessages)
+      .where(and(
+        eq(chatMessages.userId, userId),
+        eq(chatMessages.role, 'user'),
+        sql`${chatMessages.createdAt} >= ${startDate}`,
+        sql`${chatMessages.createdAt} <= ${endDate}`
+      ));
+      
+    return result?.count || 0;
+  }
+  
+  async trackQuery(userId: string): Promise<void> {
+    // This is a placeholder for future more complex tracking logic
+    // For now, queries are tracked via chat message creation
+    console.log(`Tracked query for user ${userId}`);
   }
 
   // Blog operations
