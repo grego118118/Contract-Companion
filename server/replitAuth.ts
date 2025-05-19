@@ -69,24 +69,41 @@ async function upsertUser(
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
-  app.use(getSession());
+  
+  // Setup session
+  const sessionMiddleware = getSession();
+  app.use(sessionMiddleware);
+  
+  // Initialize passport
   app.use(passport.initialize());
   app.use(passport.session());
-
+  
+  // Get OpenID config
   const config = await getOidcConfig();
-
+  
+  // User verification function for Passport
   const verify: VerifyFunction = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
+    try {
+      // Create user object with tokens
+      const user = {};
+      updateUserSession(user, tokens);
+      
+      // Save user to database
+      await upsertUser(tokens.claims());
+      
+      // Return verified user
+      verified(null, user);
+    } catch (error) {
+      console.error("Error in verify function:", error);
+      verified(error as Error);
+    }
   };
-
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  
+  // Setup Replit authentication strategies for all domains
+  for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
@@ -98,68 +115,77 @@ export async function setupAuth(app: Express) {
     );
     passport.use(strategy);
   }
-
+  
+  // Serialize and deserialize user
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
-
+  
+  // Login route - simplified to fix login issues
   app.get("/api/login", (req, res, next) => {
-    // Always clear any previous login attempts first
+    // Check if already authenticated
     if (req.isAuthenticated()) {
-      console.log("User already authenticated, proceeding to returnTo or home");
       const returnTo = req.query.returnTo as string || '/';
       return res.redirect(returnTo);
     }
-
-    // Store the return URL in the session
+    
+    // Store the returnTo for after authentication
     if (req.query.returnTo) {
-      (req.session as any).returnTo = req.query.returnTo as string;
-      console.log("Storing returnTo in session:", req.query.returnTo);
+      req.session.returnTo = req.query.returnTo as string;
     }
-      
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    
+    // Start authentication process
+    const authOpts = {
       prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
+      scope: ["openid", "email", "profile", "offline_access"]
+    };
+    
+    // Use correct authentication strategy based on hostname
+    passport.authenticate(`replitauth:${req.hostname}`, authOpts)(req, res, next);
   });
-
+  
+  // Callback route after authentication
   app.get("/api/callback", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, (err: Error | null, user: Express.User | undefined, info: any) => {
+      // Handle authentication errors
       if (err) {
         console.error("Authentication error:", err);
-        return res.redirect("/");
+        return res.redirect("/login?error=auth_failed");
       }
       
+      // Handle missing user
       if (!user) {
         console.error("No user returned from authentication");
-        return res.redirect("/");
+        return res.redirect("/login?error=no_user");
       }
       
-      // Log in the user
+      // Log in the authenticated user
       req.logIn(user, (loginErr) => {
         if (loginErr) {
           console.error("Login error:", loginErr);
-          return res.redirect("/");
+          return res.redirect("/login?error=login_failed");
         }
         
-        // Check if there's a return URL in the session
-        const returnTo = (req.session as any).returnTo || "/";
-        delete (req.session as any).returnTo;
+        // Get return URL from session
+        const returnTo = req.session.returnTo || "/";
+        delete req.session.returnTo;
         
         console.log("Authentication successful, redirecting to:", returnTo);
         
-        // Save the updated session before redirecting
+        // Save session then redirect
         req.session.save((err) => {
           if (err) {
-            console.error("Error saving session after login:", err);
+            console.error("Error saving session:", err);
           }
-          return res.redirect(returnTo as string);
+          res.redirect(returnTo as string);
         });
       });
     })(req, res, next);
   });
-
+  
+  // Logout route
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
+      // Return to home page after logout
       res.redirect(
         client.buildEndSessionUrl(config, {
           client_id: process.env.REPL_ID!,
