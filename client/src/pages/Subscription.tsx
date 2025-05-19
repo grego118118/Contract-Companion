@@ -324,7 +324,7 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
   const planName = PLAN_NAMES[planId as keyof typeof PLAN_NAMES];
   const planPrice = PLAN_PRICES[planId as keyof typeof PLAN_PRICES];
   
-  const options = {
+  const options: { clientSecret: string, appearance: { theme: 'stripe' | 'flat' | 'night' } } = {
     clientSecret,
     appearance: {
       theme: 'stripe',
@@ -366,10 +366,9 @@ const SubscriptionPage = () => {
   });
   
   // Get URL parameters to see if an upgrade was requested
-  const [, params] = useRoute('/subscription:rest*');
-  const urlParams = new URLSearchParams(params?.rest || '');
-  const isUpgrading = urlParams.get('upgrade') === 'true';
-  const planFromUrl = urlParams.get('plan');
+  const [, params] = useRoute<{ plan?: string }>('/subscription/:plan?');
+  const isUpgrading = window.location.search.includes('upgrade=true');
+  const planFromUrl = params?.plan;
   
   // Handle authentication
   if (isLoading) {
@@ -398,12 +397,10 @@ const SubscriptionPage = () => {
           )}
           
           {(!subscription || 
-            subscription.status === 'trial_expired' || 
-            subscription.status === 'canceled' || 
+            (subscription && subscription.status === 'trial_expired') || 
+            (subscription && subscription.status === 'canceled') || 
             isUpgrading) && (
-            <>
-              <NewSubscription selectedPlan={planFromUrl || undefined} />
-            </>
+            <NewSubscription selectedPlan={planFromUrl || undefined} />
           )}
         </div>
       )}
