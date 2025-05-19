@@ -606,11 +606,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Return the client secret so the frontend can complete the payment
       const invoice = subscription.latest_invoice as any;
-      const paymentIntent = invoice.payment_intent as any;
+      const paymentIntent = invoice?.payment_intent as any;
+      
+      console.log('Subscription created:', {
+        id: subscription.id,
+        hasInvoice: !!invoice,
+        hasPaymentIntent: !!paymentIntent,
+        clientSecret: paymentIntent?.client_secret
+      });
+      
+      // Create a payment intent if one doesn't exist
+      let clientSecret = paymentIntent?.client_secret;
+      
+      // If no payment intent is available (e.g., during trial), create one for setup
+      if (!clientSecret) {
+        try {
+          const setupIntent = await stripe.setupIntents.create({
+            customer: customerId,
+            payment_method_types: ['card'],
+          });
+          clientSecret = setupIntent.client_secret;
+        } catch (setupError) {
+          console.error('Error creating setup intent:', setupError);
+        }
+      }
       
       res.json({
         subscriptionId: subscription.id,
-        clientSecret: paymentIntent?.client_secret,
+        clientSecret: clientSecret,
         trialEnd: trialEnd,
         planId: planId
       });
