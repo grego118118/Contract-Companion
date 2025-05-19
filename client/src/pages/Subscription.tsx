@@ -276,24 +276,38 @@ const SubscriptionStatus = () => {
 const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string }) => {
   const [planId, setPlanId] = useState<string>(selectedPlan);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   
   useEffect(() => {
     // Create a subscription
     const createSubscription = async () => {
+      setIsLoading(true);
       try {
         const response = await apiRequest('POST', '/api/subscription', { 
           plan: planId 
         });
         
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to create subscription');
+        }
+        
         const data = await response.json();
-        setClientSecret(data.clientSecret);
+        if (data && data.clientSecret) {
+          setClientSecret(data.clientSecret);
+        } else {
+          throw new Error('No client secret returned from server');
+        }
       } catch (error: any) {
+        console.error('Subscription creation error:', error);
         toast({
           title: 'Error',
           description: error.message || 'Could not create subscription',
           variant: 'destructive',
         });
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -325,11 +339,11 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
   const planName = PLAN_NAMES[planId] || 'Standard';
   const planPrice = PLAN_PRICES[planId] || '$19.99';
   
-  // Define Stripe Elements options with proper typing
+  // Define Stripe Elements options
   const options = {
     clientSecret,
     appearance: {
-      theme: 'stripe' as const,
+      theme: 'stripe' as 'stripe',
     },
   };
   
