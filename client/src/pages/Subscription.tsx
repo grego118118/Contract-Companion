@@ -37,13 +37,13 @@ const PRICE_IDS = {
   premium: 'price_premium'
 };
 
-const PLAN_NAMES = {
+const PLAN_NAMES: Record<string, string> = {
   basic: 'Basic',
   standard: 'Standard',
   premium: 'Premium'
 };
 
-const PLAN_PRICES = {
+const PLAN_PRICES: Record<string, string> = {
   basic: '$9.99',
   standard: '$19.99',
   premium: '$29.99'
@@ -322,14 +322,14 @@ const NewSubscription = ({ selectedPlan = 'standard' }: { selectedPlan?: string 
     );
   }
   
-  const planName = PLAN_NAMES[planId as keyof typeof PLAN_NAMES];
-  const planPrice = PLAN_PRICES[planId as keyof typeof PLAN_PRICES];
+  const planName = PLAN_NAMES[planId] || 'Standard';
+  const planPrice = PLAN_PRICES[planId] || '$19.99';
   
   // Define Stripe Elements options with proper typing
-  const options: StripeElementsOptions = {
+  const options = {
     clientSecret,
     appearance: {
-      theme: 'stripe',
+      theme: 'stripe' as const,
     },
   };
   
