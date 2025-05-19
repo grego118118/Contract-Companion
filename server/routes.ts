@@ -20,9 +20,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2023-10-16" as any, // Cast to any to bypass type check
 });
 
-// Subscription pricing tiers in cents
+// Subscription pricing tiers in cents - must include correct number of cents
 const SUBSCRIPTION_PRICES = {
-  basic: 999,    // $9.99 per month
+  basic: 999,     // $9.99 per month
   standard: 1999, // $19.99 per month
   premium: 2999,  // $29.99 per month
 };
@@ -700,7 +700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 name: `ContractCompanion ${plan.name} Plan`,
                 description: plan.description || `${plan.name} subscription with 7-day free trial`
               },
-              unit_amount: Math.round(plan.price * 100), // Convert dollars to cents
+              unit_amount: plan.price, // Price is already in cents
               recurring: {
                 interval: 'month'
               }
