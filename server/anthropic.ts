@@ -1,5 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.warn('Warning: ANTHROPIC_API_KEY is not set. AI features will be limited.');
+}
+
 // the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -10,24 +14,24 @@ export async function analyzeContract(contractText: string): Promise<string> {
     // Check if API key is available
     if (!process.env.ANTHROPIC_API_KEY) {
       console.warn('ANTHROPIC_API_KEY not properly configured');
-      return "Contract uploaded successfully, but could not generate analysis due to missing API credentials.";
+      return "Sorry, I cannot analyze this contract because the AI service is not properly configured. Please contact support for assistance.";
     }
-    
-    // Create a system prompt that instructs Claude on how to analyze the contract
-    const systemPrompt = `You are an expert legal assistant specializing in labor union contracts. 
-    Analyze the provided contract text and create a comprehensive markdown summary. 
-    Focus on:
-    1. Term of Agreement
-    2. Wages and Compensation
-    3. Benefits
-    4. Working Conditions
-    5. Grievance Procedures
-    6. Seniority Provisions
-    7. Special Provisions
-    
-    Format your response using markdown with clear headings and bullet points.`;
 
-    // Make API call to Claude
+    // Create a system prompt that instructs Claude how to analyze contracts
+    const systemPrompt = `You are an expert legal assistant specializing in labor union contracts.
+    Your task is to provide a detailed analysis of the contract, broken down into key sections with specific terms and conditions explained in clear language.
+    
+    When analyzing the contract, please follow these guidelines:
+    - Begin with a brief overview of the entire contract
+    - Structure your analysis using markdown with clear headings and bullet points
+    - Focus on the most important rights, benefits, and protections for the workers
+    - Explain complex legal terminology in simple language
+    - Highlight any unusual or particularly favorable/unfavorable terms
+    - Include sections on compensation, benefits, time off, working conditions, grievance procedures, and termination
+    - If you identify any ambiguous terms or potential pitfalls, note them
+    
+    The goal is to help union members understand their contract thoroughly, even if they have no legal background.`;
+
     try {
       const response = await anthropic.messages.create({
         model: "claude-3-7-sonnet-20250219",
@@ -37,7 +41,7 @@ export async function analyzeContract(contractText: string): Promise<string> {
         messages: [
           {
             role: "user",
-            content: `Please analyze this union contract and provide a comprehensive summary:\n\n${contractText.substring(0, 25000)}`
+            content: `Please analyze this labor union contract and provide a detailed summary:\n\n${contractText.substring(0, 25000)}`
           }
         ]
       });
@@ -45,58 +49,92 @@ export async function analyzeContract(contractText: string): Promise<string> {
       // Return Claude's analysis
       const content = response.content[0];
       return 'type' in content && content.type === 'text' ? content.text : "Unable to process contract analysis";
-    } catch (apiError) {
+    } catch (apiError: any) {
       console.error('API error:', apiError);
       
+      // Check if it's a credit/quota error
+      const errorMessage = apiError?.error?.error?.message || '';
+      if (errorMessage.toLowerCase().includes('credit balance') || 
+          errorMessage.toLowerCase().includes('quota') || 
+          errorMessage.toLowerCase().includes('billing')) {
+        
+        return `# AI Service Temporarily Unavailable
+
+I attempted to analyze your contract with Anthropic's Claude AI, but encountered a service limitation:
+
+**${errorMessage}**
+
+## Using Simulated Analysis Instead
+
+I'll provide you with a simulated response based on common contract patterns. For more accurate analysis, please try again later when API credits have been replenished.
+
+---
+
+*The following is a simulated response:*
+
+# Contract Analysis
+
+Below is a general analysis of your labor union contract based on common patterns found in such agreements:
+
+## Overview
+This appears to be a collective bargaining agreement that establishes terms and conditions of employment between the employer and the union members.
+
+## Key Components
+
+### Compensation
+- Base wage rates are likely specified by job classification
+- Provisions for regular pay increases, either through step increases or annual adjustments
+- Premium pay for different shifts or special skills
+
+### Benefits
+- Health insurance provisions, including coverage levels and employee contributions
+- Retirement benefits, possibly including defined benefit pension or 401(k) matching
+- Other insurance options (life, disability, dental, vision)
+
+### Time Off
+- Vacation accrual rates based on seniority
+- Sick leave policies and accrual
+- Holidays and personal days
+- Various types of leave (bereavement, jury duty, military, family leave)
+
+### Working Conditions
+- Regular hours of work and scheduling protocols
+- Overtime assignment procedures
+- Safety requirements and protective equipment
+
+### Job Security & Seniority
+- Layoff and recall procedures based on seniority
+- Job bidding and transfer rights
+- Probationary periods for new employees
+
+### Grievance Process
+- Multi-step procedure for resolving workplace disputes
+- Timelines for filing grievances
+- Arbitration provisions for unresolved issues
+
+### Contract Duration
+- Term of the agreement
+- Renewal and renegotiation procedures`;
+      }
+      
       // Fallback analysis if API call fails
-      return `# Contract Analysis Summary
+      return `# Contract Analysis Error
 
-## Term of Agreement
-The contract appears to be effective for a period of approximately 3 years, starting from the date of ratification.
+I apologize, but I encountered an error while analyzing your contract. The AI service is temporarily unavailable. Please try again later.
 
-## Wages and Compensation
-- Base salary structure with annual step increases
-- Cost of living adjustments tied to inflation
-- Premium pay for overtime work (1.5x regular rate)
-- Shift differentials for evening and night work
-- Longevity pay for senior employees
+In the meantime, I can provide a general overview based on common patterns found in union contracts:
 
-## Benefits
-- Health insurance coverage (medical, dental, vision)
-- Retirement plan with employer matching contributions
-- Paid time off including vacation, sick leave, and holidays
-- Family and medical leave provisions
-- Education assistance program
+## Common Contract Components
 
-## Working Conditions
-- Standard 40-hour workweek
-- Guaranteed breaks and meal periods
-- Safety requirements and protections
-- Staffing ratio requirements
-- Remote work provisions
+- **Compensation**: Base wage rates, pay increases, premium pay
+- **Benefits**: Health insurance, retirement benefits, other insurance options
+- **Time Off**: Vacation, sick leave, holidays, various leave types
+- **Working Conditions**: Hours, scheduling, overtime, safety requirements
+- **Job Security**: Seniority rights, layoff procedures, job bidding
+- **Grievance Process**: Steps for resolving disputes, arbitration
+- **Contract Duration**: Term of agreement, renewal procedures
 
-## Grievance Procedures
-- Multi-step grievance process
-- Arbitration as final step for unresolved disputes
-- Timeline requirements for each step
-- Union representation rights during proceedings
-- Documentation requirements
-
-## Seniority Provisions
-- Seniority-based bidding for shifts and assignments
-- Layoff protection based on length of service
-- Recall rights for laid-off employees
-- Vacation scheduling by seniority
-- Promotion considerations
-
-## Special Provisions
-- Professional development funding
-- Anti-discrimination protections
-- Technology and workload provisions
-- Committee structures for ongoing issues
-- Special accommodations process
-
-This analysis provides a general overview of the key components found in this contract. For specific details about any provision, please use the query function to ask about particular sections of interest.`;
+For specific details about your contract, please try again when the service is back online.`;
     }
   } catch (error) {
     console.error('Error analyzing contract:', error);
@@ -111,7 +149,7 @@ export async function queryContract(contractText: string, query: string): Promis
     // Check if API key is available
     if (!process.env.ANTHROPIC_API_KEY) {
       console.warn('ANTHROPIC_API_KEY not properly configured');
-      return "Sorry, I cannot analyze this contract because the AI service is not properly configured. Please contact support for assistance.";
+      return "Sorry, I cannot answer questions about this contract because the AI service is not properly configured. Please contact support for assistance.";
     }
     
     // Create a system prompt that instructs Claude how to answer contract questions
@@ -128,8 +166,8 @@ export async function queryContract(contractText: string, query: string): Promis
     
     Your goal is to help union members better understand their rights and benefits under this contract.`;
 
-    // Make API call to Claude
     try {
+      // Make API call to Claude
       const response = await anthropic.messages.create({
         model: "claude-3-7-sonnet-20250219",
         max_tokens: 1500,
@@ -146,14 +184,47 @@ export async function queryContract(contractText: string, query: string): Promis
       // Return Claude's response
       const content = response.content[0];
       return 'type' in content && content.type === 'text' ? content.text : "Unable to process contract query";
-    } catch (apiError) {
+      
+    } catch (apiError: any) {
       console.error('API error:', apiError);
       
-      // Fallback responses if API call fails
+      // Initialize response content
+      let responseContent = "";
+      
+      // Check if it's a credit/quota error
+      const errorMessage = apiError?.error?.error?.message || '';
+      if (errorMessage.toLowerCase().includes('credit balance') || 
+          errorMessage.toLowerCase().includes('quota') || 
+          errorMessage.toLowerCase().includes('billing')) {
+        
+        // This is a quota/credit error - provide clear message to the user
+        responseContent = `# AI Service Temporarily Unavailable
+
+I attempted to analyze your contract with Anthropic's Claude AI, but encountered a service limitation:
+
+**${errorMessage}**
+
+## Using Simulated Response Instead
+
+I'll provide you with a simulated response based on common contract patterns. For more accurate analysis, please try again later when API credits have been replenished.
+
+---
+
+*The following is a simulated response:*`;
+      } else {
+        // For other API errors, return a more generic message
+        responseContent = `I apologize, but I encountered an error while analyzing your contract. The AI service is temporarily unavailable. Please try again later.
+
+In the meantime, I'll try to provide a general response based on common contract patterns:`;
+      }
+      
+      // Continue with fallback responses based on the query topic
       const lowerQuery = query.toLowerCase();
       
       if (lowerQuery.includes('vacation') || lowerQuery.includes('time off') || lowerQuery.includes('pto')) {
-        return `# Vacation and Paid Time Off
+        return responseContent + `
+
+# Vacation and Paid Time Off
 
 According to **Article 12, Section 3** of the contract, employees are entitled to the following paid time off:
 
@@ -170,7 +241,9 @@ According to **Article 12, Section 3** of the contract, employees are entitled t
 **Article 12, Section 6** specifies that up to 40 hours of unused vacation time may be carried over to the next calendar year, but must be used within the first 3 months of that year.`;
       } 
       else if (lowerQuery.includes('sick') || lowerQuery.includes('illness') || lowerQuery.includes('medical leave')) {
-        return `# Sick Leave Provisions
+        return responseContent + `
+
+# Sick Leave Provisions
 
 According to **Article 13, Sections 1-3**, employees accrue sick leave as follows:
 
@@ -189,7 +262,9 @@ According to **Article 13, Sections 1-3**, employees accrue sick leave as follow
 The contract also provides for **extended medical leave** under **Article 14**, which allows for up to 12 weeks of unpaid leave with job protection for serious health conditions, running concurrently with FMLA where applicable.`;
       }
       else if (lowerQuery.includes('grievance') || lowerQuery.includes('complaint') || lowerQuery.includes('dispute')) {
-        return `# Grievance Procedure
+        return responseContent + `
+
+# Grievance Procedure
 
 The contract outlines a multi-step grievance process in **Article 22**:
 
@@ -210,7 +285,9 @@ If unresolved, **Section 22.3** allows filing a written grievance with the depar
 **Section 22.10** prohibits retaliation against employees who file grievances.`;
       }
       else if (lowerQuery.includes('overtime') || lowerQuery.includes('extra hours') || lowerQuery.includes('comp time')) {
-        return `# Overtime Provisions
+        return responseContent + `
+
+# Overtime Provisions
 
 According to **Article 8 (Hours of Work and Overtime)**, the following overtime provisions apply:
 
@@ -240,7 +317,9 @@ The contract also specifies in **Section 8.10** that employees must have supervi
       }
       else {
         // Generic response for other questions
-        return `Based on my analysis of the contract, I can provide the following information regarding your question about "${query}":
+        return responseContent + `
+
+Based on my analysis of the contract, I can provide the following information regarding your question about "${query}":
 
 The contract addresses this topic in multiple sections, primarily in **Article 15, Sections 3-7**. 
 
