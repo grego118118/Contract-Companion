@@ -614,11 +614,19 @@ const Dashboard = () => {
         {/* SAVED ANSWERS TAB */}
         <TabsContent value="saved">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <BookMarked className="w-5 h-5 mr-2" />
-                Saved Answers
-              </CardTitle>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between mb-2">
+                <CardTitle className="flex items-center">
+                  <BookMarked className="w-5 h-5 mr-2" />
+                  Saved Answers
+                </CardTitle>
+                
+                {savedChats && savedChats.length > 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    {savedChats.length} saved answer{savedChats.length !== 1 ? 's' : ''}
+                  </div>
+                )}
+              </div>
               <CardDescription>
                 Important contract answers you've saved for future reference
               </CardDescription>
@@ -629,51 +637,111 @@ const Dashboard = () => {
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
               ) : savedChats && savedChats.length > 0 ? (
-                <div className="space-y-4">
-                  {savedChats.map((chat: any) => (
-                    <div key={chat.id} className="border rounded-lg p-4 hover:bg-accent/50 transition-colors">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center">
-                          <FileText className="w-4 h-4 mr-2 text-muted-foreground" />
-                          <span className="text-sm font-medium">
-                            {chat.contractName || "Unknown Contract"}
-                          </span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(chat.timestamp), { addSuffix: true })}
-                        </span>
-                      </div>
-                      
-                      <div className="mb-2">
-                        <p className="text-sm font-medium mb-1">Q: {chat.userQuestion}</p>
-                        <p className="text-sm text-muted-foreground">A: {chat.assistantResponse}</p>
-                      </div>
-                      
-                      <div className="flex justify-between items-center mt-2">
-                        <Link href={`/contract/${chat.contractId}`} className="text-xs text-primary hover:underline">
-                          View in context
-                        </Link>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={async () => {
-                            if (window.confirm("Remove this saved answer?")) {
-                              try {
-                                await apiRequest("POST", `/api/chats/${chat.id}/unsave`);
-                                // Invalidate saved chats to refresh the list
-                                queryClient.invalidateQueries({ queryKey: ["/api/saved-chats"] });
-                              } catch (error) {
-                                console.error("Error removing saved chat:", error);
-                              }
-                            }
-                          }}
-                        >
-                          Remove
-                        </Button>
+                <div>
+                  {/* Filters - by contract */}
+                  {savedChats.length > 1 && (
+                    <div className="mb-4 pb-4 border-b">
+                      <h3 className="text-sm font-medium mb-2">Filter by Contract</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {Array.from(new Set(savedChats.map((chat: any) => chat.contractId))).map((contractId: any) => {
+                          const contract = savedChats.find((chat: any) => chat.contractId === contractId);
+                          return (
+                            <Button 
+                              key={contractId} 
+                              variant="outline" 
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => {
+                                // In a future enhancement, we could implement filtering
+                              }}
+                            >
+                              {contract?.contractName || "Unknown Contract"}
+                            </Button>
+                          );
+                        })}
                       </div>
                     </div>
-                  ))}
+                  )}
+                  
+                  <div className="space-y-6">
+                    {savedChats.map((chat: any) => (
+                      <div key={chat.id} className="border rounded-lg p-5 hover:bg-accent/20 transition-colors">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center">
+                            <FileText className="w-5 h-5 mr-2 text-primary" />
+                            <span className="font-medium">
+                              {chat.contractName || "Unknown Contract"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(chat.timestamp), { addSuffix: true })}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="mb-3 bg-accent/20 p-3 rounded-md">
+                          <p className="font-medium mb-2">Question:</p>
+                          <p className="text-sm text-muted-foreground mb-4">{chat.userQuestion}</p>
+                          <p className="font-medium mb-2">Answer:</p>
+                          <div className="text-sm text-muted-foreground whitespace-pre-line">
+                            {chat.assistantResponse}
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center mt-4">
+                          <Link 
+                            href={`/contract/${chat.contractId}`} 
+                            className="text-sm text-primary hover:underline flex items-center"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                            View in context
+                          </Link>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`Q: ${chat.userQuestion}\nA: ${chat.assistantResponse}`);
+                                alert("Copied to clipboard");
+                              }}
+                            >
+                              Copy Text
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="h-8 text-destructive"
+                              onClick={async () => {
+                                if (window.confirm("Remove this saved answer?")) {
+                                  try {
+                                    await apiRequest("POST", `/api/chats/${chat.id}/unsave`);
+                                    // Invalidate saved chats to refresh the list
+                                    queryClient.invalidateQueries({ queryKey: ["/api/saved-chats"] });
+                                  } catch (error) {
+                                    console.error("Error removing saved chat:", error);
+                                  }
+                                }
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+
+                        {chat.categories && chat.categories.length > 0 && (
+                          <div className="mt-3 pt-3 border-t flex flex-wrap gap-2">
+                            {chat.categories.map((category: any, index: number) => (
+                              <div key={index} className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
+                                {category.key}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8 border rounded-lg">
