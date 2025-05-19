@@ -96,11 +96,16 @@ const Dashboard = () => {
     if (!subscription) return null;
 
     if (subscription.status === "trialing" && subscription.trialEndsAt) {
+      // Use a fixed 7 days for trial if trialEndsAt is not available
+      if (!subscription.trialEndsAt) return 7;
+      
       return Math.max(0, Math.ceil((new Date(subscription.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
     } else if (subscription.currentPeriodEnd) {
       return Math.max(0, Math.ceil((new Date(subscription.currentPeriodEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
     }
-    return null;
+    
+    // Default to 7 days for trial if we can't calculate it
+    return subscription.status === "trialing" ? 7 : null;
   };
 
   // Create usage chart data
@@ -151,12 +156,12 @@ const Dashboard = () => {
                 {subscription && subscription.status === "trialing" && (
                   <>
                     <p className="text-sm text-muted-foreground mb-2">
-                      {daysLeft} days left in trial
+                      {daysLeft || 7} days left in trial
                     </p>
-                    <Progress value={(daysLeft / 7) * 100} className="h-2" />
+                    <Progress value={((daysLeft || 7) / 7) * 100} className="h-2" />
                     <div className="mt-4">
                       <Button size="sm" asChild>
-                        <Link href="/subscription">Upgrade Now</Link>
+                        <Link href="/checkout">Upgrade Now</Link>
                       </Button>
                     </div>
                   </>

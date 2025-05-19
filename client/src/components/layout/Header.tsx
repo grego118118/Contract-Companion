@@ -140,13 +140,22 @@ const Header = () => {
             </Link>
           ))}
           {isAuthenticated && (
-            <Link
-              href="/subscription"
-              className="block py-2 font-semibold text-accent"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Subscription
-            </Link>
+            <>
+              <Link
+                href="/dashboard"
+                className="block py-2 font-semibold text-primary"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/subscription"
+                className="block py-2 font-semibold text-accent"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Subscription
+              </Link>
+            </>
           )}
           {!isAuthenticated && (
             <a
