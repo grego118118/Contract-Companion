@@ -38,7 +38,7 @@ const PricingPage = () => {
       ],
       cta: "Choose Standard",
       popular: true,
-      link: isAuthenticated ? "/subscription?plan=standard" : "/api/login"
+      link: isAuthenticated ? "/checkout?plan=standard" : "/api/login"
     },
     {
       name: "Premium",
@@ -55,7 +55,7 @@ const PricingPage = () => {
       ],
       cta: "Choose Premium",
       popular: false,
-      link: isAuthenticated ? "/subscription?plan=premium" : "/api/login"
+      link: isAuthenticated ? "/checkout?plan=premium" : "/api/login"
     }
   ];
 
