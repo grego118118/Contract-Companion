@@ -49,10 +49,50 @@ const Dashboard = () => {
     enabled: isAuthenticated,
   });
 
+  // Handle network connection errors
+  const isNetworkError = 
+    (!isLoading && !isAuthenticated) || 
+    (subscription && 'error' in subscription && subscription.networkError) ||
+    (usageData && 'error' in usageData && usageData.networkError) ||
+    (contracts && 'error' in contracts && contracts.networkError) ||
+    (savedChats && 'error' in savedChats && savedChats.networkError);
+
   if (isLoading) {
     return (
       <div className="container py-12 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Show a network error message with retry button
+  if (isNetworkError) {
+    return (
+      <div className="container py-12">
+        <Card className="max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="text-destructive" />
+              Connection Error
+            </CardTitle>
+            <CardDescription>
+              Unable to connect to the server. This could be due to a network issue.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-4">
+            <p className="text-sm text-muted-foreground text-center">
+              Please check your internet connection and try again. If the problem persists, the server may be temporarily unavailable.
+            </p>
+            <Button 
+              onClick={() => {
+                window.location.reload();
+              }}
+              className="mt-2"
+            >
+              Retry Connection
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
