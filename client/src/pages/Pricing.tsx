@@ -22,7 +22,7 @@ const PricingPage = () => {
       ],
       cta: "Get Started",
       popular: false,
-      link: isAuthenticated ? "/subscription?plan=basic" : "/api/login"
+      link: isAuthenticated ? "/checkout?plan=basic" : "/api/login"
     },
     {
       name: "Standard",

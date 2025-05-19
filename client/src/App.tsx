@@ -13,6 +13,7 @@ import BlogPost from "@/pages/BlogPost";
 import About from "@/pages/About";
 import Pricing from "@/pages/Pricing";
 import Subscription from "@/pages/Subscription";
+import DirectCheckout from "@/pages/DirectCheckout";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import NotFound from "@/pages/not-found";
 
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/subscription" component={Subscription} />
+      <Route path="/checkout" component={DirectCheckout} />
       <Route path="/subscription/success" component={SubscriptionSuccess} />
       <Route component={NotFound} />
     </Switch>
