@@ -688,51 +688,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Find existing price or create a new one
-      let priceId;
-      
-      // Use hardcoded price IDs for now
-      const PRICE_IDS = {
-        basic: 'price_1RRCHmPBZ56spM5fPcvqJZ1J',
-        standard: 'price_1RRCHmPBZ56spM5fhBb56Dw6',
-        premium: 'price_1RRCHmPBZ56spM5fSoJhCy0n'
-      };
-      
-      try {
-        priceId = PRICE_IDS[planId as keyof typeof PRICE_IDS];
-        
-        if (!priceId) {
-          // Create product first
-          const product = await stripe.products.create({
-            name: `ContractCompanion ${plan.name} Plan`,
-            description: plan.description || `${plan.name} plan with 7-day free trial`
-          });
-  
-          // Create price for the product
-          const price = await stripe.prices.create({
-            unit_amount: Math.round(plan.price * 100),
-            currency: 'usd',
-            recurring: { interval: 'month' },
-            product: product.id,
-            metadata: {
-              planId: planId
-            }
-          });
-          
-          priceId = price.id;
-        }
-      } catch (err) {
-        console.error('Error creating product/price:', err);
-        throw new Error('Could not create subscription options');
-      }
-      
-      // Create a checkout session with proper configuration using price ID
+      // Create a checkout session with price_data instead of price ID
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],
         line_items: [
           {
-            price: priceId,
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `ContractCompanion ${plan.name} Plan`,
+                description: plan.description || `${plan.name} subscription with 7-day free trial`
+              },
+              unit_amount: Math.round(plan.price * 100), // Convert dollars to cents
+              recurring: {
+                interval: 'month'
+              }
+            },
             quantity: 1,
           },
         ],
