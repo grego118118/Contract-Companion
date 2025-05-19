@@ -558,23 +558,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // First, create the product
+      const product = await stripe.products.create({
+        name: `ContractCompanion ${plan.name}`,
+        description: `Monthly subscription to ContractCompanion ${plan.name} - ${plan.description}`
+      });
+      
+      // Create the price
+      const price = await stripe.prices.create({
+        product: product.id,
+        currency: 'usd',
+        unit_amount: plan.price,
+        recurring: {
+          interval: 'month'
+        }
+      });
+      
       // Create a subscription with a trial period
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [
           {
-            price_data: {
-              currency: 'usd',
-              // @ts-ignore - product_data is valid but not in the types
-              product_data: {
-                name: `ContractCompanion ${plan.name}`,
-                description: `Monthly subscription to ContractCompanion ${plan.name} - ${plan.description}`
-              },
-              unit_amount: plan.price,
-              recurring: {
-                interval: 'month'
-              }
-            }
+            price: price.id
           }
         ],
         payment_behavior: 'default_incomplete',
