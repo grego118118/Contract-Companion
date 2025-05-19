@@ -135,28 +135,15 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/api/login?returnTo=" + encodeURIComponent(req.originalUrl));
+  }
+  
   const user = req.user as any;
-
-  if (!req.isAuthenticated() || !user.expires_at) {
-    return res.status(401).json({ message: "Unauthorized" });
+  if (!user || !user.claims || !user.claims.sub) {
+    return res.redirect("/api/login?returnTo=" + encodeURIComponent(req.originalUrl));
   }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (now <= user.expires_at) {
-    return next();
-  }
-
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    return res.redirect("/api/login");
-  }
-
-  try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    return next();
-  } catch (error) {
-    return res.redirect("/api/login");
-  }
+  
+  // We have a valid session - proceed
+  return next();
 };
