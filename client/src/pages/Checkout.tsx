@@ -91,11 +91,27 @@ export default function Checkout() {
       
       if (data.checkoutUrl) {
         console.log('Redirecting to Stripe checkout:', data.checkoutUrl);
-        // Force redirect to the Stripe checkout URL
-        window.location.assign(data.checkoutUrl);
-        // As a fallback, provide a direct link
-        alert('If you are not redirected automatically, please click OK to go to the payment page.');
-        window.location.href = data.checkoutUrl;
+        
+        // Create a visual link for the user to click
+        setProcessingPlan(null);
+        
+        // Display a modal or message with the link
+        const checkoutUrl = data.checkoutUrl;
+        const confirmed = confirm(
+          "Click OK to go to the Stripe payment page. If the page doesn't open automatically, please copy and paste the URL from the console."
+        );
+        
+        if (confirmed) {
+          // Try to open the URL in a new tab
+          window.open(checkoutUrl, '_blank');
+          
+          // Also try direct navigation
+          setTimeout(() => {
+            window.location.href = checkoutUrl;
+          }, 500);
+        }
+        
+        return;
       } else {
         throw new Error('No checkout URL returned from server');
       }
