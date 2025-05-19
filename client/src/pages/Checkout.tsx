@@ -104,15 +104,8 @@ export default function Checkout() {
   }
 
   if (!isAuthenticated) {
-    // Direct redirect to login
-    window.location.href = "/api/login";
-    // Show a loading state while redirecting
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        <div className="ml-4">Redirecting to login...</div>
-      </div>
-    );
+    // Use Redirect component for better handling of authentication flow
+    return <Redirect to="/api/login" />;
   }
 
   return (
