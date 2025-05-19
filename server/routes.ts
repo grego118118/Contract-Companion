@@ -621,13 +621,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If no payment intent is available (e.g., during trial), create one for setup
       if (!clientSecret) {
         try {
-          const setupIntent = await stripe.setupIntents.create({
+          // Create a payment intent with a minimum amount (Stripe requires at least $0.50)
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: 50, // $0.50 in cents
+            currency: 'usd',
             customer: customerId,
             payment_method_types: ['card'],
+            capture_method: 'manual', // We'll capture this later when subscription is confirmed
+            description: `Setup payment for ${plan.name} plan`,
           });
-          clientSecret = setupIntent.client_secret;
+          clientSecret = paymentIntent.client_secret;
+          
+          console.log('Created payment intent:', paymentIntent.id, 'with client secret');
         } catch (setupError) {
-          console.error('Error creating setup intent:', setupError);
+          console.error('Error creating payment intent:', setupError);
         }
       }
       
