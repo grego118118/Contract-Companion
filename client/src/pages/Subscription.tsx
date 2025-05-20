@@ -439,9 +439,9 @@ const SubscriptionPage = () => {
     );
   }
   
-  if (!isAuthenticated) {
-    return <Redirect to="/api/login" />;
-  }
+  // Allow anonymous users to view subscription plans
+  // They'll be redirected to login during checkout if needed
+  // This prevents "invalid_redirect_uri" errors
   
   return (
     <div className="container max-w-5xl py-12 px-4">

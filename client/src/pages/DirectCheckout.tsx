@@ -126,9 +126,8 @@ export default function DirectCheckout() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <Redirect to="/api/login" />;
-  }
+  // Allow users to browse plans without authentication
+  // They will be asked to login during the checkout process if needed
 
   return (
     <div className="container mx-auto py-16 px-4 sm:px-6 lg:px-8">

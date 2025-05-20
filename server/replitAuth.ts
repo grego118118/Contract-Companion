@@ -90,30 +90,32 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
-    const strategy = new Strategy(
-      {
-        name: `replitauth:${domain}`,
-        config,
-        scope: "openid email profile offline_access",
-        callbackURL: `https://${domain}/api/callback`,
-      },
-      verify,
-    );
-    passport.use(strategy);
-  }
+  // Extract the first domain to avoid having multiple strategies
+  const domain = process.env.REPLIT_DOMAINS!.split(",")[0];
+  
+  // Create just one strategy for the primary domain
+  const strategy = new Strategy(
+    {
+      name: "replitauth",
+      config,
+      scope: "openid email profile offline_access",
+      callbackURL: `https://${domain}/api/callback`,
+    },
+    verify,
+  );
+  
+  passport.use(strategy);
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   // Create super simple login and callback routes
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`)(req, res, next);
+    passport.authenticate("replitauth")(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate("replitauth", {
       successRedirect: '/',
       failureRedirect: '/'
     })(req, res, next);

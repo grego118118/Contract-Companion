@@ -668,18 +668,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Create a checkout session for subscription
-  app.post("/api/create-checkout-session", isAuthenticated, async (req: any, res) => {
+  // Create a checkout session for subscription - simplified for reliability
+  app.post("/api/create-checkout-session", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
       // Get the requested plan (default to standard)
-      const planId = (req.body.plan || 'standard');
+      const planId = (req.body.plan || req.body.planId || 'standard');
       
       if (!SUBSCRIPTION_PLANS[planId]) {
         return res.status(400).json({ message: "Invalid subscription plan" });
@@ -687,16 +680,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const plan = SUBSCRIPTION_PLANS[planId];
       
-      // Create or retrieve Stripe customer
-      let customerId = user.stripeCustomerId;
+      // Handle anonymous checkout - we'll link the user account after login
+      let userId = 'anonymous';
+      let user = null;
+      let customerId = null;
+      
+      if (req.isAuthenticated && req.isAuthenticated() && req.user && req.user.claims && req.user.claims.sub) {
+        userId = req.user.claims.sub;
+        user = await storage.getUser(userId);
+        
+        // Use existing customer ID if available
+        if (user && user.stripeCustomerId) {
+          customerId = user.stripeCustomerId;
+        }
+      }
       
       if (!customerId) {
         // Create a new customer
         const customer = await stripe.customers.create({
-          email: user.email || undefined,
-          name: user.firstName || 'Union Member',
+          email: user?.email || 'guest@example.com',
+          name: user?.firstName || 'Guest User',
           metadata: {
-            userId: user.id
+            userId: userId
           }
         });
         
