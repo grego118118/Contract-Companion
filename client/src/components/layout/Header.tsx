@@ -92,18 +92,19 @@ const Header = () => {
             </DropdownMenu>
           ) : (
             <div className="flex items-center space-x-2">
-              <a
-                href="/api/login"
+              <Button
+                onClick={() => window.location.href = "/api/login"}
+                variant="link"
                 className="text-primary font-semibold text-sm hover:underline hidden md:block"
               >
                 Log In
-              </a>
-              <a
-                href="/api/login"
+              </Button>
+              <Button
+                onClick={() => window.location.href = "/api/login"}
                 className="bg-primary text-white font-semibold text-sm px-4 py-2 rounded-md hover:bg-primary/90 transition"
               >
                 Sign Up
-              </a>
+              </Button>
             </div>
           )}
 
@@ -158,12 +159,13 @@ const Header = () => {
             </>
           )}
           {!isAuthenticated && (
-            <a
-              href="/api/login"
+            <Button
+              onClick={() => window.location.href = "/api/login"}
+              variant="link"
               className="block py-2 font-semibold text-primary"
             >
               Log In
-            </a>
+            </Button>
           )}
         </div>
       )}

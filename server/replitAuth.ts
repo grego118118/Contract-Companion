@@ -14,10 +14,15 @@ if (!process.env.REPLIT_DOMAINS) {
 
 const getOidcConfig = memoize(
   async () => {
-    return await client.discovery(
-      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
-    );
+    try {
+      return await client.discovery(
+        new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
+        process.env.REPL_ID!
+      );
+    } catch (error) {
+      console.error("Failed to get OIDC config:", error);
+      throw error;
+    }
   },
   { maxAge: 3600 * 1000 }
 );
@@ -69,41 +74,24 @@ async function upsertUser(
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
-  
-  // Setup session
-  const sessionMiddleware = getSession();
-  app.use(sessionMiddleware);
-  
-  // Initialize passport
+  app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
-  
-  // Get OpenID config
+
   const config = await getOidcConfig();
-  
-  // User verification function for Passport
+
   const verify: VerifyFunction = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    try {
-      // Create user object with tokens
-      const user = {};
-      updateUserSession(user, tokens);
-      
-      // Save user to database
-      await upsertUser(tokens.claims());
-      
-      // Return verified user
-      verified(null, user);
-    } catch (error) {
-      console.error("Error in verify function:", error);
-      verified(error as Error);
-    }
+    const user = {};
+    updateUserSession(user, tokens);
+    await upsertUser(tokens.claims());
+    verified(null, user);
   };
-  
-  // Setup Replit authentication strategies for all domains
-  for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
+
+  for (const domain of process.env
+    .REPLIT_DOMAINS!.split(",")) {
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
@@ -115,47 +103,25 @@ export async function setupAuth(app: Express) {
     );
     passport.use(strategy);
   }
-  
-  // Serialize and deserialize user
+
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
-  
-  // Super simple login route
+
+  // Create super simple login and callback routes
   app.get("/api/login", (req, res, next) => {
-    // Use the simplest possible authentication flow
     passport.authenticate(`replitauth:${req.hostname}`)(req, res, next);
   });
-  
-  // Simple callback route
+
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, (err: Error | null, user: Express.User | undefined, info: any) => {
-      if (err || !user) {
-        console.error("Authentication failed:", err);
-        return res.redirect("/");
-      }
-      
-      req.logIn(user, (loginErr) => {
-        if (loginErr) {
-          console.error("Login error:", loginErr);
-          return res.redirect("/");
-        }
-        
-        // Always redirect to home page
-        return res.redirect("/");
-      });
+    passport.authenticate(`replitauth:${req.hostname}`, {
+      successRedirect: '/',
+      failureRedirect: '/'
     })(req, res, next);
   });
-  
-  // Logout route
+
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
-      // Return to home page after logout
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
+      res.redirect('/');
     });
   });
 }
