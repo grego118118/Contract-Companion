@@ -131,8 +131,11 @@ export default function Checkout() {
     );
   }
 
+  // Temporarily bypassing login requirement for testing purposes
+  // This allows you to access subscription plans without login
+  // Comment follows original authentication code:
+  /*
   if (!isAuthenticated) {
-    // Add a login button that properly redirects and preserves the current page
     return (
       <div className="container mx-auto py-16 px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
@@ -144,7 +147,6 @@ export default function Checkout() {
             <Button
               size="lg"
               onClick={() => {
-                // Direct link to the login page with no fancy redirect logic
                 window.location.href = '/api/login';
               }}
               className="bg-primary hover:bg-primary/90"
@@ -156,6 +158,7 @@ export default function Checkout() {
       </div>
     );
   }
+  */
 
   return (
     <div className="container mx-auto py-16 px-4 sm:px-6 lg:px-8">
