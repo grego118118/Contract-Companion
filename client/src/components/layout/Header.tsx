@@ -26,6 +26,7 @@ const Header = () => {
     { title: "Pricing", href: "/pricing" },
     { title: "Blog", href: "/blog" },
     { title: "About", href: "/about" },
+    { title: "System Health", href: "/system-health" },
   ];
 
   return (
@@ -81,6 +82,9 @@ const Header = () => {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/subscription">Subscription</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/system-health">System Health</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
@@ -155,6 +159,13 @@ const Header = () => {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Subscription
+              </Link>
+              <Link
+                href="/system-health"
+                className="block py-2 font-semibold text-blue-600"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                System Health
               </Link>
             </>
           )}
