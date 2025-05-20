@@ -108,15 +108,13 @@ export default function DirectCheckout() {
     }
   };
 
-  // Process plan selection when component mounts or authentication changes
+  // Process plan selection when component mounts
   useEffect(() => {
-    if (isAuthenticated) {
-      const planId = getValidPlan();
-      if (planId) {
-        handleSubscribe(planId);
-      }
+    const planId = getValidPlan();
+    if (planId) {
+      handleSubscribe(planId);
     }
-  }, [isAuthenticated]);
+  }, []);
 
   if (isLoading) {
     return (

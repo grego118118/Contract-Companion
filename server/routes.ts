@@ -734,17 +734,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         ],
         mode: 'subscription',
-        success_url: `https://${req.hostname}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `https://${req.hostname}/subscription`,
+        success_url: `https://${req.headers.host || req.hostname}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `https://${req.headers.host || req.hostname}/subscription`,
         subscription_data: {
           trial_period_days: 7,
           metadata: {
-            userId: user.id,
+            userId: userId,
             planId: planId
           }
         },
         metadata: {
-          userId: user.id,
+          userId: userId,
           planId: planId
         },
         allow_promotion_codes: true,
