@@ -16,6 +16,7 @@ import Subscription from "@/pages/Subscription";
 import Checkout from "@/pages/Checkout";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import Dashboard from "@/pages/Dashboard";
+import SystemHealth from "@/pages/SystemHealth";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/checkout/:plan" component={Checkout} />
       <Route path="/checkout" component={Checkout} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/system-health" component={SystemHealth} />
       <Route component={NotFound} />
     </Switch>
   );

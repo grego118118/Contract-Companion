@@ -97,6 +97,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send('Login page - this is a test');
   });
   
+  // System health monitoring endpoint
+  app.get('/api/health', async (req, res) => {
+    try {
+      const { getSystemHealth } = await import('./services/healthService');
+      const healthData = await getSystemHealth();
+      res.json(healthData);
+    } catch (error) {
+      console.error('Error fetching system health:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch system health',
+        services: [] 
+      });
+    }
+  });
+  
   // Auth middleware
   await setupAuth(app);
 
