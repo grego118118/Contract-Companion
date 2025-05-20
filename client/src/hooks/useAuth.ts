@@ -18,12 +18,20 @@ export function useAuth() {
     window.location.href = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
   };
 
+  // Fix authentication state detection
+  const isAuthenticated = !!(user && user.isAuthenticated);
+  
+  // For debugging
+  if (user && !isAuthenticated) {
+    console.log("Auth data received but not authenticated:", user);
+  }
+  
   return {
-    user,
+    user: user?.user || null,
     isLoading, 
     error,
     refreshAuth,
     login,
-    isAuthenticated: !!user,
+    isAuthenticated,
   };
 }

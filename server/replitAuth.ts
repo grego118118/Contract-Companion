@@ -36,16 +36,20 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  
+  // Set up a more reliable session configuration
   return session({
     secret: process.env.SESSION_SECRET || "temp-session-secret-for-development",
     store: sessionStore,
     resave: false,
     saveUninitialized: true, // Save uninitialized sessions to store returnTo
+    rolling: true, // Forces the session identifier cookie to be set on every response
     cookie: {
       httpOnly: true,
       secure: false, // Set to false to allow non-HTTPS during development
       sameSite: 'lax',
       maxAge: sessionTtl,
+      path: '/'
     },
   });
 }
@@ -73,10 +77,26 @@ async function upsertUser(
 }
 
 export async function setupAuth(app: Express) {
+  // Ensure trust proxy is set correctly for secure cookies
   app.set("trust proxy", 1);
-  app.use(getSession());
+  
+  // Set up session handling first
+  const sessionMiddleware = getSession();
+  app.use(sessionMiddleware);
+  
+  // Initialize passport after session is set up
   app.use(passport.initialize());
   app.use(passport.session());
+  
+  // Add debugging middleware to check session state
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/auth')) {
+      console.log('Session debug - isAuthenticated:', req.isAuthenticated());
+      console.log('Session debug - session ID:', req.sessionID);
+      console.log('Session debug - user:', req.user);
+    }
+    next();
+  });
 
   const config = await getOidcConfig();
 
@@ -84,10 +104,33 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
+    try {
+      // Get claims from tokens
+      const claims = tokens.claims();
+      console.log("User claims:", JSON.stringify(claims, null, 2));
+      
+      // Create a proper user object with necessary properties
+      const user = {
+        id: claims.sub,
+        email: claims.email,
+        firstName: claims.given_name || claims.name,
+        lastName: claims.family_name,
+        profileImageUrl: claims.picture,
+        claims: claims
+      };
+      
+      // Add tokens to the user session
+      updateUserSession(user, tokens);
+      
+      // Save user to database
+      await upsertUser(claims);
+      
+      // Return the user object to Passport
+      verified(null, user);
+    } catch (error) {
+      console.error("Error in verify function:", error);
+      verified(error as Error);
+    }
   };
 
   // Extract the first domain to avoid having multiple strategies
@@ -106,8 +149,16 @@ export async function setupAuth(app: Express) {
   
   passport.use(strategy);
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  // Configure how user data is saved in the session and retrieved later
+  passport.serializeUser((user: Express.User, cb) => {
+    console.log("Serializing user:", user);
+    cb(null, user);
+  });
+  
+  passport.deserializeUser((user: Express.User, cb) => {
+    console.log("Deserializing user:", user);
+    cb(null, user);
+  });
 
   // Create super simple login and callback routes
   app.get("/api/login", (req, res, next) => {
@@ -115,9 +166,27 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate("replitauth", {
-      successRedirect: '/',
-      failureRedirect: '/'
+    passport.authenticate("replitauth", (err, user, info) => {
+      if (err) {
+        console.error("Authentication error:", err);
+        return res.redirect('/');
+      }
+      
+      if (!user) {
+        console.error("No user returned from authentication:", info);
+        return res.redirect('/');
+      }
+      
+      // Log in the user
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error("Login error:", loginErr);
+          return res.redirect('/');
+        }
+        
+        console.log("User successfully logged in:", user.id);
+        return res.redirect('/');
+      });
     })(req, res, next);
   });
 
