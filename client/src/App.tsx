@@ -14,6 +14,7 @@ import About from "@/pages/About";
 import Pricing from "@/pages/Pricing";
 import Subscription from "@/pages/Subscription";
 import Checkout from "@/pages/Checkout";
+import SimpleCheckout from "@/pages/SimpleCheckout";
 import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 import Dashboard from "@/pages/Dashboard";
 import SystemHealth from "@/pages/SystemHealth";
@@ -33,6 +34,8 @@ function Router() {
       <Route path="/subscription" component={Subscription} />
       <Route path="/checkout/:plan" component={Checkout} />
       <Route path="/checkout" component={Checkout} />
+      <Route path="/simple-checkout/:plan" component={SimpleCheckout} />
+      <Route path="/simple-checkout" component={SimpleCheckout} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/system-health" component={SystemHealth} />
       <Route component={NotFound} />

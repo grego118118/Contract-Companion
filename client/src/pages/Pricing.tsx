@@ -9,11 +9,11 @@ const PricingPage = () => {
   const { isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Direct approach to handle plan selection
+  // Direct approach to handle plan selection - using simple checkout page
   const handlePlanSelect = (planId: string) => {
-    // Directly navigate to the checkout page
-    // This is more reliable than trying to handle authentication redirects
-    setLocation(`/checkout/${planId}`);
+    // Use our simplified checkout page that handles payment processing directly
+    // without requiring authentication or complex redirects
+    setLocation(`/simple-checkout/${planId}`);
   };
 
   const individualPlans = [
