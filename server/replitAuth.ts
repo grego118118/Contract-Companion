@@ -160,32 +160,46 @@ export async function setupAuth(app: Express) {
     cb(null, user);
   });
 
-  // Create super simple login and callback routes
+  // Create improved login and callback routes with proper error handling
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate("replitauth")(req, res, next);
+    // Store the return URL in the session if provided
+    if (req.query.returnTo) {
+      req.session.returnTo = req.query.returnTo as string;
+    }
+    
+    // Initiate authentication
+    passport.authenticate("replitauth", {
+      // Force the auth flow to always happen
+      prompt: "login",
+    })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
     passport.authenticate("replitauth", (err, user, info) => {
       if (err) {
         console.error("Authentication error:", err);
-        return res.redirect('/');
+        return res.redirect('/?auth_error=server_error');
       }
       
       if (!user) {
         console.error("No user returned from authentication:", info);
-        return res.redirect('/');
+        return res.redirect('/?auth_error=login_failed');
       }
       
-      // Log in the user
+      // Log in the user with a complete user session
       req.logIn(user, (loginErr) => {
         if (loginErr) {
           console.error("Login error:", loginErr);
-          return res.redirect('/');
+          return res.redirect('/?auth_error=session_error');
         }
         
         console.log("User successfully logged in:", user.id);
-        return res.redirect('/');
+        
+        // Redirect to the stored return URL or default to home
+        const returnTo = req.session.returnTo || '/';
+        delete req.session.returnTo;
+        
+        return res.redirect(returnTo);
       });
     })(req, res, next);
   });

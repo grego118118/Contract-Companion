@@ -95,8 +95,16 @@ export default function DirectCheckout() {
       console.log('Checkout response:', data);
       
       if (data.checkoutUrl) {
-        console.log('Redirecting to checkout URL:', data.checkoutUrl);
-        window.location.href = data.checkoutUrl;
+        console.log('Redirecting to Stripe checkout:', data.checkoutUrl);
+        // Use window.open instead of location.href to open in a new tab/window
+        // This helps avoid browser popup blockers and redirects
+        const newWindow = window.open(data.checkoutUrl, '_blank');
+        
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+          // Popup was blocked, fallback to direct link
+          alert('Please click OK to open the payment page in a new window');
+          window.location.href = data.checkoutUrl;
+        }
       } else {
         throw new Error('No checkout URL returned from server');
       }
