@@ -432,6 +432,9 @@ const ChatInterface = ({
         <div className="flex items-center">
           <Input
             type="text"
+            id="chat-input"
+            name="chat-input"
+            aria-label="Ask a question about your contract"
             placeholder="Ask a question about your contract..."
             value={input}
             onChange={handleInputChange}
