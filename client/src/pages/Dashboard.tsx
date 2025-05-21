@@ -10,6 +10,7 @@ import { Link } from "wouter";
 import { Loader2, AlertCircle, PlusCircle, FileText, BarChart3, CreditCard, BookMarked } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from 'date-fns';
+import { enUS } from 'date-fns/locale/en-US';
 
 // Usage chart
 import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip as ChartTooltip } from 'recharts';
@@ -715,7 +716,7 @@ const Dashboard = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(chat.timestamp), { addSuffix: true })}
+                              {formatDistanceToNow(new Date(chat.timestamp), { addSuffix: true, locale: enUS })}
                             </span>
                           </div>
                         </div>
