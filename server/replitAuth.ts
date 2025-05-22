@@ -1,22 +1,25 @@
-// IMPORTANT: Set the following environment variables for Google OAuth:
-// GOOGLE_CLIENT_ID
-// GOOGLE_CLIENT_SECRET
+// Simplified auth mechanism that doesn't rely on Google OAuth
 
-import passport from "passport";
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import session from "express-session";
-import type { Express, RequestHandler } from "express";
+import type { Express, RequestHandler, Request } from "express";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { randomUUID } from "crypto";
+
+// Extend express-session with our custom properties
+declare module 'express-session' {
+  interface SessionData {
+    user: any;
+    isAuthenticated: boolean;
+    returnTo?: string;
+  }
+}
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
 
-if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-  console.warn("GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET environment variables are not set. Google OAuth will not function.");
-}
-
+// Simple session setup
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const PgStore = connectPg(session);
@@ -28,7 +31,7 @@ export function getSession() {
   });
   
   return session({
-    secret: process.env.SESSION_SECRET || "temp-session-secret-for-development-google",
+    secret: process.env.SESSION_SECRET || "temp-session-secret-for-development",
     store: sessionStore,
     resave: false,
     saveUninitialized: true,
@@ -43,150 +46,121 @@ export function getSession() {
   });
 }
 
-// This function maps Google profile claims to the structure expected by storage.upsertUser
-async function upsertUser(
-  claims: {
-    sub: string;
-    email: string;
-    given_name?: string;
-    family_name?: string;
-    picture?: string;
+// For demo purposes - create a demo user if they don't exist
+async function getOrCreateDemoUser() {
+  const demoUserId = 'demo-user-' + randomUUID().slice(0, 8);
+  try {
+    // Try to get an existing demo user
+    const existingUser = await storage.getUser('demo-user');
+    if (existingUser) {
+      return existingUser;
+    }
+    
+    // Create a new demo user
+    const newUser = await storage.upsertUser({
+      id: 'demo-user',
+      email: 'demo@example.com',
+      firstName: 'Demo',
+      lastName: 'User',
+      profileImageUrl: 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
+    });
+    
+    return newUser;
+  } catch (error) {
+    console.error("Error creating demo user:", error);
+    // Fallback user object if DB operations fail
+    return {
+      id: 'demo-user',
+      email: 'demo@example.com',
+      firstName: 'Demo',
+      lastName: 'User',
+      profileImageUrl: 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y',
+    };
   }
-) {
-  await storage.upsertUser({
-    id: claims.sub, // Google ID is used as 'sub'
-    email: claims.email,
-    firstName: claims.given_name, // Corresponds to 'first_name'
-    lastName: claims.family_name,   // Corresponds to 'last_name'
-    profileImageUrl: claims.picture, // Corresponds to 'profile_image_url'
-  });
 }
 
+// Simple authentication setup without external providers
 export async function setupAuth(app: Express) {
-  app.set("trust proxy", 1); // Important for secure cookies if behind a proxy
+  app.set("trust proxy", 1);
   
   const sessionMiddleware = getSession();
   app.use(sessionMiddleware);
   
-  app.use(passport.initialize());
-  app.use(passport.session());
-  
+  // Debug middleware
   app.use((req, res, next) => {
     if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/login') || req.path.startsWith('/api/logout')) {
       console.log(`Auth debug (${req.path}):`);
       console.log('  Session ID:', req.sessionID);
-      console.log('  Authenticated:', req.isAuthenticated());
-      console.log('  User:', req.user);
+      console.log('  User in session:', req.session.user ? 'Yes' : 'No');
     }
     next();
   });
 
-  const domain = process.env.REPLIT_DOMAINS!.split(",")[0];
-  const callbackURL = `https://${domain}/api/auth/google/callback`;
-  console.log(`Using Google OAuth callback URL: ${callbackURL}`);
-
-  passport.use(new GoogleStrategy({
-      clientID: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      callbackURL: callbackURL,
-      scope: ['profile', 'email'],
-    },
-    async (accessToken, refreshToken, profile, done) => {
-      try {
-        // console.log('Google profile:', JSON.stringify(profile, null, 2)); // For debugging
-        const userEmail = profile.emails && profile.emails.length > 0 ? profile.emails[0].value : undefined;
-        if (!userEmail) {
-          return done(new Error("No email found in Google profile"), undefined);
-        }
-
-        const claimsForDb = {
-          sub: profile.id,
-          email: userEmail,
-          given_name: profile.name?.givenName,
-          family_name: profile.name?.familyName,
-          picture: profile.photos && profile.photos.length > 0 ? profile.photos[0].value : undefined,
-        };
-
-        await upsertUser(claimsForDb);
-
-        const user = {
-          id: profile.id,
-          email: userEmail,
-          firstName: profile.name?.givenName || '',
-          lastName: profile.name?.familyName || '',
-          profileImageUrl: profile.photos && profile.photos.length > 0 ? profile.photos[0].value : '',
-          // Retain a claims-like structure on the user object for session consistency if needed elsewhere
-          claims: claimsForDb 
-        };
-        
-        return done(null, user);
-      } catch (error) {
-        return done(error as Error);
-      }
-    }
-  ));
-
-  passport.serializeUser((user: Express.User, cb) => {
-    console.log("Serializing user:", user);
-    cb(null, user); // Store the whole user object in session
-  });
-  
-  passport.deserializeUser((user: Express.User, cb) => {
-    console.log("Deserializing user:", user);
-    // Here, you might typically fetch the user from DB using user.id to ensure it's fresh
-    // For now, just returning the session user object
-    cb(null, user);
-  });
-
-  app.get("/api/login", passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-  app.get("/api/auth/google/callback", 
-    passport.authenticate('google', { 
-      failureRedirect: '/', 
-      failureMessage: true // Will add error messages to req.session.messages
-    }), 
-    (req, res) => {
-      // Successful authentication
-      console.log("Google callback successful, user:", req.user);
-      req.logIn(req.user!, (err) => { // req.user is populated by Passport
-        if (err) {
-          console.error("Login error after Google callback:", err);
-          return res.redirect('/'); 
-        }
-        console.log("User successfully logged in via req.logIn, redirecting to /");
-        // Check for returnTo URL if you implement it, otherwise redirect to home
-        const returnTo = req.session.returnTo || '/';
-        delete req.session.returnTo;
-        res.redirect(returnTo);
+  // Simple login endpoint
+  app.post("/api/login", async (req, res) => {
+    try {
+      // For demo purposes, log in automatically with a demo user
+      const demoUser = await getOrCreateDemoUser();
+      
+      // Store user in session
+      req.session.user = demoUser;
+      req.session.isAuthenticated = true;
+      
+      console.log("User logged in:", demoUser);
+      
+      res.json({ 
+        success: true, 
+        user: demoUser 
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Login failed due to server error" 
       });
     }
-  );
+  });
 
-  app.get("/api/logout", (req, res, next) => {
-    console.log("Logging out user:", req.user);
-    req.logout((err) => {
-      if (err) { 
-        console.error("Logout error:", err);
-        return next(err); 
+  // Simple logout
+  app.get("/api/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Session destruction error:", err);
+        return res.status(500).json({ success: false, message: "Logout failed" });
       }
-      req.session.destroy((destroyErr) => {
-        if (destroyErr) {
-          console.error("Session destruction error:", destroyErr);
-          return next(destroyErr);
-        }
-        res.clearCookie('connect.sid', { path: '/' }); // Ensure session cookie is cleared
-        console.log("User logged out, session destroyed, redirecting to /");
-        res.redirect('/');
-      });
+      
+      res.clearCookie('connect.sid', { path: '/' });
+      console.log("User logged out, session destroyed");
+      res.json({ success: true });
     });
   });
 
-  // Endpoint to check current user (useful for frontend)
+  // Check current user
   app.get("/api/auth/user", (req, res) => {
-    if (req.isAuthenticated()) {
-      res.json(req.user);
+    if (req.session.isAuthenticated && req.session.user) {
+      res.json(req.session.user);
     } else {
       res.status(401).json({ message: "Not authenticated" });
+    }
+  });
+  
+  // Simplified auto-login for testing
+  app.get("/api/auto-login", async (req, res) => {
+    try {
+      // Auto-login with demo user
+      const demoUser = await getOrCreateDemoUser();
+      
+      // Store user in session
+      req.session.user = demoUser;
+      req.session.isAuthenticated = true;
+      
+      console.log("Auto-login successful:", demoUser);
+      
+      // Redirect to home or dashboard
+      res.redirect('/dashboard');
+    } catch (error) {
+      console.error("Auto-login error:", error);
+      res.redirect('/');
     }
   });
 }
@@ -194,33 +168,36 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const publicPaths = [
     '/api/login',
-    '/api/auth/google/callback', // Updated callback path
+    '/api/auto-login',
     '/api/auth/user',
-    '/api/blog', // Assuming blog is public
-    '/api/create-checkout-session', // Assuming this is part of a public flow
+    '/api/blog',
+    '/api/create-checkout-session',
+    '/api/subscription-plans',
+    '/api/checkout',
     // Add any other public API endpoints here
   ];
   
   // Allow access to static assets, client-side routes, and non-API paths
   if (!req.path.startsWith('/api/') || 
       publicPaths.some(p => req.path.startsWith(p)) ||
-      req.path === '/api/logout') { // Logout should be accessible
+      req.path === '/api/logout') {
     return next();
   }
 
-  // Handle marketing/public pages explicitly if they are served via /api/* (unlikely)
-  // For example, if /api/pricing-page is a public API endpoint
-  if (req.path.startsWith('/api/pricing') || req.path.startsWith('/api/subscription-plans')) {
-      return next();
+  // Handle public pages explicitly if they are served via /api/*
+  if (req.path.startsWith('/api/pricing') || 
+      req.path.startsWith('/api/subscription')) {
+    return next();
   }
   
-  if (!req.isAuthenticated()) {
+  // Check if user is authenticated using our simplified session
+  if (!req.session.isAuthenticated || !req.session.user) {
     console.log(`Access denied for ${req.path}. User not authenticated.`);
-    // Store original URL for redirect after login
+    // Store original URL for potential redirect after login
     req.session.returnTo = req.originalUrl;
     return res.status(401).json({ message: "Please log in to access this feature." });
   }
   
-  console.log(`Access granted for ${req.path}. User:`, req.user?.id);
+  console.log(`Access granted for ${req.path}. User:`, req.session.user.id);
   return next();
 };
