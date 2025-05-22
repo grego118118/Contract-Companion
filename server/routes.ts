@@ -11,6 +11,7 @@ import { PDFDocument } from "pdf-lib";
 import type { Request, Response } from "express";
 import Stripe from "stripe";
 import { checkSubscription } from "./middleware/subscriptionCheck";
+import { createCheckoutSession } from "./simpleCheckout";
 
 // Initialize Stripe
 if (!process.env.STRIPE_SECRET_KEY) {
