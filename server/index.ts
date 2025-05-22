@@ -1,3 +1,5 @@
+console.log(`TEST - GOOGLE_CLIENT_ID: [${process.env.GOOGLE_CLIENT_ID}]`);
+console.log(`TEST - GOOGLE_CLIENT_SECRET: [${process.env.GOOGLE_CLIENT_SECRET?.substring(0, 5)}...]`); // Only log a snippet of the secret
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
