@@ -98,6 +98,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send('Login page - this is a test');
   });
   
+  // Direct checkout endpoint that fixes the Stripe checkout issue
+  app.post('/api/create-checkout-session', createCheckoutSession);
+  
   // System health monitoring endpoint
   app.get('/api/health', async (req, res) => {
     try {
