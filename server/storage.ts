@@ -12,7 +12,10 @@ import {
   type BlogPost,
   blogCategories,
   type BlogCategory,
-  blogPostCategories
+  blogPostCategories,
+  grievances, // Added
+  type Grievance, // Added
+  type InsertGrievance // Added
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, ne, sql, inArray } from "drizzle-orm";
@@ -22,7 +25,14 @@ import path from "path";
 export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  // upsertUser(user: UpsertUser): Promise<User>; // Original signature
+  upsertUser(userData: { // New signature for Google Auth
+    googleId: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    profileImageUrl?: string;
+  }): Promise<User>;
   updateUserSubscription(userId: string, data: {
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
@@ -56,7 +66,17 @@ export interface IStorage {
   getRelatedBlogPosts(postId: number | string, limit: number): Promise<any[]>;
   getBlogCategory(id: number | string): Promise<BlogCategory | undefined>;
   getBlogCategories(): Promise<BlogCategory[]>;
+
+  // Grievance operations
+  createGrievance(data: Omit<InsertGrievance, 'userId' | 'status' | 'createdAt' | 'updatedAt'>, userId: string): Promise<Grievance>;
+  getGrievanceById(id: number, userId: string): Promise<Grievance | undefined>;
+  getGrievancesForUser(userId: string): Promise<Grievance[]>;
+  updateGrievanceStatus(id: number, userId: string, status: string): Promise<Grievance | undefined>;
 }
+
+export class DatabaseStorage implements IStorage {
+  // User operations
+import { v4 as uuidv4 } from 'uuid'; // For generating new user IDs
 
 export class DatabaseStorage implements IStorage {
   // User operations
@@ -65,22 +85,80 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values({
-        ...userData,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+  async upsertUser(userData: {
+    googleId: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    profileImageUrl?: string;
+  }): Promise<User> {
+    const now = new Date();
+
+    // 1. Check if user exists with this googleId
+    let [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.googleId, userData.googleId));
+
+    if (existingUser) {
+      // User exists with googleId, update their info
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          email: userData.email,
+          firstName: userData.firstName || existingUser.firstName,
+          lastName: userData.lastName || existingUser.lastName,
+          profileImageUrl: userData.profileImageUrl || existingUser.profileImageUrl,
+          updatedAt: now,
+        })
+        .where(eq(users.id, existingUser.id))
+        .returning();
+      console.log("User updated by googleId:", updatedUser);
+      return updatedUser;
+    }
+
+    // 2. No user with googleId, check if user exists with this email
+    [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, userData.email));
+
+    if (existingUser) {
+      // User exists with email, link account by adding googleId and update info
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          googleId: userData.googleId,
+          firstName: userData.firstName || existingUser.firstName,
+          lastName: userData.lastName || existingUser.lastName,
+          profileImageUrl: userData.profileImageUrl || existingUser.profileImageUrl,
+          updatedAt: now,
+        })
+        .where(eq(users.id, existingUser.id))
+        .returning();
+      console.log("User updated by email (linked account):", updatedUser);
+      return updatedUser;
+    }
+
+    // 3. No user exists by googleId or email, create new user
+    const newUser: UpsertUser = {
+      id: uuidv4(), // Generate a new UUID for the internal id
+      googleId: userData.googleId,
+      email: userData.email,
+      firstName: userData.firstName || null,
+      lastName: userData.lastName || null,
+      profileImageUrl: userData.profileImageUrl || null,
+      createdAt: now,
+      updatedAt: now,
+      subscriptionStatus: "trial",
+      planId: "standard", // Default plan
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days trial
+      // stripeCustomerId and stripeSubscriptionId will be null by default
+    };
+
+    const [createdUser] = await db.insert(users).values(newUser).returning();
+    console.log("New user created:", createdUser);
+    return createdUser;
   }
   
   async updateUserSubscription(userId: string, data: {
@@ -434,6 +512,56 @@ export class DatabaseStorage implements IStorage {
       .where(inArray(blogCategories.id, categoryIds));
     
     return categories;
+  }
+
+  // Grievance operations
+  async createGrievance(data: Omit<InsertGrievance, 'userId' | 'status' | 'createdAt' | 'updatedAt'>, userId: string): Promise<Grievance> {
+    const now = new Date();
+    const newGrievanceData: InsertGrievance = {
+      ...data,
+      userId,
+      status: 'pending', // Default status
+      createdAt: now,
+      updatedAt: now,
+    };
+    const [grievance] = await db.insert(grievances).values(newGrievanceData).returning();
+    return grievance;
+  }
+
+  async getGrievanceById(id: number, userId: string): Promise<Grievance | undefined> {
+    const [grievance] = await db
+      .select()
+      .from(grievances)
+      .where(and(eq(grievances.id, id), eq(grievances.userId, userId)));
+    return grievance;
+  }
+
+  async getGrievancesForUser(userId: string): Promise<Grievance[]> {
+    return db
+      .select()
+      .from(grievances)
+      .where(eq(grievances.userId, userId))
+      .orderBy(desc(grievances.createdAt));
+  }
+
+  async updateGrievanceStatus(id: number, userId: string, status: string): Promise<Grievance | undefined> {
+    // First, verify the grievance belongs to the user before updating
+    const [existingGrievance] = await db
+      .select({ id: grievances.id }) // Select minimal data for check
+      .from(grievances)
+      .where(and(eq(grievances.id, id), eq(grievances.userId, userId)));
+
+    if (!existingGrievance) {
+      // Grievance not found or user does not own it
+      return undefined; 
+    }
+
+    const [updatedGrievance] = await db
+      .update(grievances)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(grievances.id, id)) // No need to check userId again here due to above check, but can be kept for safety
+      .returning();
+    return updatedGrievance;
   }
 }
 

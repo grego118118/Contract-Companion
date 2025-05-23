@@ -25,8 +25,9 @@ export const sessions = pgTable(
 
 // User storage table for Replit Auth
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
+  id: varchar("id").primaryKey().notNull(), // This will be our internal ID, can be a UUID
+  googleId: varchar("google_id").unique(), // Google's unique ID for the user
+  email: varchar("email").unique().notNull(), // Email from Google, should be mandatory
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -123,3 +124,33 @@ export const insertBlogCategorySchema = createInsertSchema(blogCategories).omit(
 export type BlogPostCategory = typeof blogPostCategories.$inferSelect;
 export type InsertBlogPostCategory = Omit<typeof blogPostCategories.$inferInsert, "id">;
 export const insertBlogPostCategorySchema = createInsertSchema(blogPostCategories).omit({ id: true });
+
+// Grievances table
+export const grievances = pgTable("grievances", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  contractId: integer("contract_id").notNull().references(() => contracts.id, { onDelete: "cascade" }),
+  violatedClause: text("violated_clause"), // Text allows for detailed descriptions or multiple clauses
+  description: text("description").notNull(),
+  status: varchar("status", { length: 50 }).default('pending').notNull(), // e.g., 'pending', 'filed', 'resolved'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type Grievance = typeof grievances.$inferSelect;
+export type InsertGrievance = typeof grievances.$inferInsert;
+// Zod schema for client-side validation when creating a grievance
+export const insertGrievanceSchema = createInsertSchema(grievances, {
+  description: z.string().min(10, { message: "Grievance description must be at least 10 characters long." }),
+  violatedClause: z.string().optional(), // Making violatedClause optional at the Zod level
+  // userId will be set from session/auth context on the server
+  // contractId will be provided by the client based on context
+  // status will default to 'pending'
+  // id, createdAt, updatedAt are auto-generated or server-set
+}).omit({ 
+  id: true, 
+  userId: true, // Will be set by the server from authenticated user
+  status: true, // Will use database default or be set by server logic
+  createdAt: true, 
+  updatedAt: true 
+});

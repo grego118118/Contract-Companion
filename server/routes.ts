@@ -1,16 +1,20 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import passport from "passport"; // Added for Google Auth routes
+import { z } from "zod"; // Import Zod
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./googleAuth"; // Changed import
 import { analyzeContract, queryContract } from "./anthropic";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { PDFDocument } from "pdf-lib";
+import pdf from "pdf-parse"; // Added pdf-parse
 import type { Request, Response } from "express";
 import Stripe from "stripe";
 import { checkSubscription } from "./middleware/subscriptionCheck";
+import grievanceRoutes from './routes/grievanceRoutes'; // Import grievance router
+import contractRoutes from './routes/contractRoutes'; // Import contract router
 
 // Initialize Stripe
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -113,244 +117,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Auth middleware
-  await setupAuth(app);
+  await setupAuth(app); // Make sure setupAuth is called
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+  // CSRF Token Endpoint - should be accessible to get the token
+  app.get('/api/csrf-token', (req: any, res) => {
+    if (typeof req.csrfToken === 'function') {
+      res.json({ csrfToken: req.csrfToken() });
+    } else {
+      // This case might occur if CSRF middleware isn't correctly placed before this route's execution for some reason
+      // or if the route is incorrectly exempted by an earlier middleware.
+      console.error("Error: req.csrfToken() is not available on /api/csrf-token. Check middleware order.");
+      res.status(500).json({ message: 'CSRF token not available.' });
     }
   });
 
-  // Contracts API
-  
-  // Get all contracts for a user
-  app.get("/api/contracts", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const contracts = await storage.getUserContracts(userId);
-      res.json(contracts);
-    } catch (error) {
-      console.error("Error fetching contracts:", error);
-      res.status(500).json({ message: "Failed to fetch contracts" });
-    }
-  });
+  // Google Auth routes
+  app.get('/api/auth/google',
+    passport.authenticate('google', { scope: ['profile', 'email'] })
+  );
 
-  // Get a specific contract
-  app.get("/api/contracts/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const contractId = req.params.id;
-      
-      const contract = await storage.getContract(contractId);
-      
-      if (!contract) {
-        return res.status(404).json({ message: "Contract not found" });
-      }
-      
-      if (contract.userId !== userId) {
-        return res.status(403).json({ message: "You don't have permission to access this contract" });
-      }
-      
-      res.json(contract);
-    } catch (error) {
-      console.error("Error fetching contract:", error);
-      res.status(500).json({ message: "Failed to fetch contract" });
+  app.get('/api/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login-failed' }), // Redirect on failure
+    (req, res) => {
+      // Successful authentication
+      console.log("Google auth callback successful, user:", req.user);
+      // Redirect to a success page or the frontend
+      const returnTo = req.session.returnTo || '/';
+      delete req.session.returnTo;
+      res.redirect(returnTo);
     }
+  );
+
+  // Logout route
+  app.get('/api/logout', (req, res, next) => {
+    req.logout((err) => {
+      if (err) { return next(err); }
+      req.session.destroy((destroyErr) => { // Also destroy session
+        if (destroyErr) {
+          console.error("Error destroying session:", destroyErr);
+          return next(destroyErr);
+        }
+        res.clearCookie('connect.sid', { path: '/' }); // Clear session cookie
+        console.log("User logged out and session destroyed");
+        res.redirect('/'); // Redirect to homepage after logout
+      });
+    });
   });
   
-  // Serve contract PDF file
-  app.get("/api/contracts/:id/file", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const contractId = req.params.id;
-      
-      const contract = await storage.getContract(contractId);
-      
-      if (!contract) {
-        return res.status(404).json({ message: "Contract not found" });
+  // Auth routes (e.g., get current user)
+  // This route is intentionally public, its response indicates auth state.
+  app.get('/api/auth/user', async (req: any, res) => {
+    if (req.isAuthenticated() && req.user) {
+      // req.user should be the full user object from deserializeUser
+      // We can re-fetch or assume req.user is fresh enough.
+      // For robustness, especially if user details can change, re-fetching is safer.
+      try {
+        const userFromDb = await storage.getUser(req.user.id);
+        if (userFromDb) {
+          res.json({ user: userFromDb, isAuthenticated: true });
+        } else {
+          // This case might happen if user was deleted from DB during session
+          req.logout((err) => { // Log out the user from session
+            if (err) { console.error("Error during logout on user not found:", err); }
+            res.json({ user: null, isAuthenticated: false, message: "User not found in database." });
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching user in /api/auth/user:", error);
+        res.status(500).json({ user: null, isAuthenticated: false, message: "Error fetching user data." });
       }
-      
-      if (contract.userId !== userId) {
-        return res.status(403).json({ message: "You don't have permission to access this contract" });
-      }
-      
-      // Check if file exists
-      if (!fs.existsSync(contract.filePath)) {
-        return res.status(404).json({ message: "Contract file not found" });
-      }
-      
-      // Set appropriate content type header
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="${contract.name}"`);
-      
-      // Stream the file
-      const fileStream = fs.createReadStream(contract.filePath);
-      fileStream.pipe(res);
-    } catch (error) {
-      console.error("Error serving contract file:", error);
-      res.status(500).json({ message: "Failed to serve contract file" });
+    } else {
+      res.json({ user: null, isAuthenticated: false });
     }
   });
 
-  // Upload a new contract
-  app.post("/api/contracts/upload", isAuthenticated, upload.single("contract"), async (req: any, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
+  // Mount Grievance Routes
+  app.use('/api/grievances', grievanceRoutes);
 
-      const userId = req.user.claims.sub;
-      const file = req.file;
-      
-      // Extract text from PDF
-      const pdfBuffer = fs.readFileSync(file.path);
-      
-      // Use pdf-lib to load the document
-      const pdfDoc = await PDFDocument.load(pdfBuffer);
-      const pages = pdfDoc.getPages();
-      
-      // Extract text content from each page
-      let contractText = "";
-      for (const page of pages) {
-        // Note: pdf-lib doesn't directly extract text, so we're creating a placeholder
-        // In a production app, we'd use a more robust text extraction library
-        const pageText = `[Content from page ${pages.indexOf(page) + 1}]`;
-        contractText += pageText + "\n\n";
-      }
-      
-      // Use Anthropic to analyze the contract
-      const analysis = await analyzeContract(contractText);
-      
-      // Store the contract in the database
-      const contract = await storage.createContract({
-        userId,
-        name: file.originalname,
-        filePath: file.path,
-        fileSize: file.size,
-        textContent: contractText,
-        analysis,
-      });
-      
-      res.status(201).json({
-        id: contract.id,
-        name: contract.name,
-        uploadedAt: contract.uploadedAt,
-      });
-    } catch (error) {
-      console.error("Error uploading contract:", error);
-      res.status(500).json({ message: "Failed to upload contract" });
-    }
-  });
-
-  // Delete a contract
-  app.delete("/api/contracts/:id", isAuthenticated, checkSubscription, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const contractId = req.params.id;
-      
-      const contract = await storage.getContract(contractId);
-      
-      if (!contract) {
-        return res.status(404).json({ message: "Contract not found" });
-      }
-      
-      if (contract.userId !== userId) {
-        return res.status(403).json({ message: "You don't have permission to delete this contract" });
-      }
-      
-      // Delete the file
-      if (fs.existsSync(contract.filePath)) {
-        fs.unlinkSync(contract.filePath);
-      }
-      
-      // Delete from database
-      await storage.deleteContract(contractId);
-      
-      res.status(200).json({ message: "Contract deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting contract:", error);
-      res.status(500).json({ message: "Failed to delete contract" });
-    }
-  });
-
-  // Get chat history for a contract
-  app.get("/api/contracts/:id/chat", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const contractId = req.params.id;
-      
-      const contract = await storage.getContract(contractId);
-      
-      if (!contract) {
-        return res.status(404).json({ message: "Contract not found" });
-      }
-      
-      if (contract.userId !== userId) {
-        return res.status(403).json({ message: "You don't have permission to access this chat history" });
-      }
-      
-      const chatHistory = await storage.getContractChatHistory(contractId);
-      res.json(chatHistory);
-    } catch (error) {
-      console.error("Error fetching chat history:", error);
-      res.status(500).json({ message: "Failed to fetch chat history" });
-    }
-  });
-
-  // Query a contract
-  app.post("/api/contracts/:id/query", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const contractId = req.params.id;
-      const { query } = req.body;
-      
-      if (!query) {
-        return res.status(400).json({ message: "Query is required" });
-      }
-      
-      const contract = await storage.getContract(contractId);
-      
-      if (!contract) {
-        return res.status(404).json({ message: "Contract not found" });
-      }
-      
-      if (contract.userId !== userId) {
-        return res.status(403).json({ message: "You don't have permission to query this contract" });
-      }
-      
-      // Use Anthropic to query the contract
-      const response = await queryContract(contract.textContent, query);
-      
-      // Save the conversation to history
-      const chatMessage = await storage.createChatMessage({
-        contractId,
-        userId,
-        role: "user",
-        content: query,
-      });
-      
-      const assistantMessage = await storage.createChatMessage({
-        contractId,
-        userId,
-        role: "assistant",
-        content: response,
-      });
-      
-      res.json({
-        id: assistantMessage.id,
-        content: response,
-      });
-    } catch (error) {
-      console.error("Error querying contract:", error);
-      res.status(500).json({ message: "Failed to query contract" });
-    }
-  });
+  // Mount Contract Routes
+  app.use('/api/contracts', contractRoutes);
 
   // Blog API
   
@@ -410,7 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reset the trial period for a user (added for development purposes)
   app.post("/api/subscription/reset-trial", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id; // Changed to generic id
       
       // Set trial period for 7 days from now
       const trialEnd = new Date();
@@ -435,7 +280,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user subscription status
   app.get("/api/subscription", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // const userId = req.user.claims.sub; // Replit specific
+      const userId = req.user.id; // Changed to generic id
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -466,25 +312,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.subscriptionStatus === "trial" && user.trialEndsAt) {
         const now = new Date();
         if (now > user.trialEndsAt) {
-          // For development purposes, automatically extend the trial instead of expiring it
-          const trialEnd = new Date();
-          trialEnd.setDate(trialEnd.getDate() + 7);
-          
-          await storage.updateUserSubscription(userId, {
-            subscriptionStatus: "trial",
-            trialEndsAt: trialEnd
-          });
-          
+          // Trial has expired
+          // Option: Update status in DB to 'expired' if desired, e.g.:
+          // await storage.updateUserSubscription(userId, { subscriptionStatus: "expired" });
+          // For now, just reflect in response:
           return res.json({
-            status: "trial",
-            trialEndsAt: trialEnd,
-            daysLeft: 7,
+            status: "expired", // Clearly indicate trial is expired
+            trialEndsAt: user.trialEndsAt,
+            daysLeft: 0,
             planId: user.planId || "standard",
-            message: "Your trial has been automatically extended."
+            message: "Your trial period has ended. Please subscribe to continue."
           });
         }
         
-        // Trial is still active
+        // Trial is still active (existing logic for this part is fine)
         const daysLeft = Math.ceil((user.trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         return res.json({
           status: "trial",
@@ -536,8 +377,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start a subscription
   app.post("/api/subscription", isAuthenticated, async (req: any, res) => {
+    const subscriptionPlanSchema = z.object({ plan: z.enum(['basic', 'standard', 'premium']).optional() });
     try {
-      const userId = req.user.claims.sub;
+      const validationResult = subscriptionPlanSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: 'Invalid plan data.', errors: validationResult.error.flatten().fieldErrors });
+      }
+      const validatedPlan = validationResult.data.plan;
+
+      // const userId = req.user.claims.sub; // Replit specific
+      const userId = req.user.id; // Changed to generic id
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -550,9 +399,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get the requested plan (default to standard)
-      const planId = (req.body.plan || 'standard') as keyof typeof SUBSCRIPTION_PLANS;
+      const planId = (validatedPlan || 'standard') as keyof typeof SUBSCRIPTION_PLANS; // Use validatedPlan
       if (!SUBSCRIPTION_PLANS[planId]) {
-        return res.status(400).json({ message: "Invalid subscription plan" });
+        // This check might seem redundant if z.enum covers all valid plans,
+        // but good for defense in depth or if SUBSCRIPTION_PLANS keys change.
+        return res.status(400).json({ message: "Invalid subscription plan key." });
       }
       
       const plan = SUBSCRIPTION_PLANS[planId];
@@ -670,12 +521,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Create a checkout session for subscription - simplified for reliability
   app.post("/api/create-checkout-session", async (req: any, res) => {
+    const checkoutSessionSchema = z.object({ 
+      plan: z.enum(['basic', 'standard', 'premium']).optional(), 
+      planId: z.enum(['basic', 'standard', 'premium']).optional() 
+    }).superRefine((data, ctx) => { 
+      if (!data.plan && !data.planId) { 
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Either plan or planId must be provided' }); 
+      } 
+    });
+
     try {
+      const validationResult = checkoutSessionSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: 'Invalid checkout session data.', errors: validationResult.error.flatten().fieldErrors });
+      }
+      const { plan: validatedPlan, planId: validatedPlanId } = validationResult.data;
+      
       // Get the requested plan (default to standard)
-      const planId = (req.body.plan || req.body.planId || 'standard');
+      const planId = (validatedPlan || validatedPlanId || 'standard') as keyof typeof SUBSCRIPTION_PLANS;
       
       if (!SUBSCRIPTION_PLANS[planId]) {
-        return res.status(400).json({ message: "Invalid subscription plan" });
+        return res.status(400).json({ message: "Invalid subscription plan key." });
       }
       
       const plan = SUBSCRIPTION_PLANS[planId];
@@ -685,8 +551,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let user = null;
       let customerId = null;
       
-      if (req.isAuthenticated && req.isAuthenticated() && req.user && req.user.claims && req.user.claims.sub) {
-        userId = req.user.claims.sub;
+      if (req.isAuthenticated && req.isAuthenticated() && req.user && req.user.id) { // Changed to generic req.user.id
+        userId = req.user.id; // Changed to generic id
         user = await storage.getUser(userId);
         
         // Use existing customer ID if available
@@ -760,7 +626,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/subscription", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // const userId = req.user.claims.sub; // Replit specific
+      const userId = req.user.id; // Changed to generic id
       const user = await storage.getUser(userId);
       
       if (!user || !user.stripeSubscriptionId) {
@@ -787,19 +654,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Webhook for Stripe events
   app.post("/api/webhook/stripe", async (req, res) => {
     const sig = req.headers['stripe-signature'] as string;
-    
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!endpointSecret) {
+      console.error('Stripe webhook secret is not set in environment variables.');
+      return res.status(400).send('Webhook secret not configured.');
+    }
+
     let event;
     
     try {
-      // Verify webhook signature
-      // For this, you would need to set an endpoint secret in your Stripe dashboard
-      // const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-      // event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-      
-      // Since this is a demo, we'll just parse the event directly
-      event = req.body;
-    } catch (err) {
-      console.error("Webhook signature verification failed:", err);
+      // req.body should be the raw Buffer here
+      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    } catch (err: any) {
+      console.error("Stripe webhook signature verification failed:", err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
     
@@ -851,7 +719,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user usage data for dashboard
   app.get("/api/usage", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // const userId = req.user.claims.sub; // Replit specific
+      const userId = req.user.id; // Changed to generic id
       
       // Get user plan features/limits
       const user = await storage.getUser(userId);
@@ -885,7 +754,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's saved chat messages
   app.get("/api/saved-chats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // const userId = req.user.claims.sub; // Replit specific
+      const userId = req.user.id; // Changed to generic id
       const savedChats = await storage.getUserSavedChatMessages(userId);
       
       // For each saved chat, get the contract name
@@ -910,7 +780,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chats/:id/save", isAuthenticated, async (req: any, res) => {
     try {
       const messageId = req.params.id;
-      const userId = req.user.claims.sub;
+      // const userId = req.user.claims.sub; // Replit specific
+      const userId = req.user.id; // Changed to generic id
       
       await storage.saveChatMessage(messageId, userId);
       res.json({ success: true });
@@ -923,7 +794,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chats/:id/unsave", isAuthenticated, async (req: any, res) => {
     try {
       const messageId = req.params.id;
-      const userId = req.user.claims.sub;
+      // const userId = req.user.claims.sub; // Replit specific
+      const userId = req.user.id; // Changed to generic id
       
       await storage.unsaveChatMessage(messageId, userId);
       res.json({ success: true });
@@ -936,7 +808,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create Stripe Customer Portal session
   app.post("/api/create-portal-session", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // const userId = req.user.claims.sub; // Replit specific
+      const userId = req.user.id; // Changed to generic id
       const user = await storage.getUser(userId);
       
       if (!user || !user.stripeCustomerId) {
@@ -958,7 +831,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cancel subscription
   app.post("/api/cancel-subscription", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // const userId = req.user.claims.sub; // Replit specific
+      const userId = req.user.id; // Changed to generic id
       const user = await storage.getUser(userId);
       
       if (!user || !user.stripeSubscriptionId) {
