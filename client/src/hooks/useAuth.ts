@@ -15,23 +15,37 @@ export function useAuth() {
   // Login helper function
   const login = (returnPath?: string) => {
     const returnTo = returnPath || window.location.pathname;
-    window.location.href = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
+    // Store returnTo in session storage or pass it as a query param to the backend
+    // if your /api/auth/google endpoint can handle it.
+    // For simplicity, we'll assume the backend handles 'returnTo' from session if set by a prior middleware.
+    sessionStorage.setItem('loginReturnTo', returnTo); 
+    window.location.href = `/api/auth/google`; // Redirect to Google OAuth
   };
 
-  // Fix authentication state detection
-  const isAuthenticated = !!(user && user.isAuthenticated);
-  
+  // Logout helper function
+  const logout = () => {
+    window.location.href = '/api/logout';
+  };
+
+  // User data and authentication state from useQuery
+  // The backend /api/auth/user now returns { user: User, isAuthenticated: boolean }
+  const currentUser = user?.user || null;
+  const isAuthenticated = !!(user && user.isAuthenticated && user.user);
+
   // For debugging
-  if (user && !isAuthenticated) {
-    console.log("Auth data received but not authenticated:", user);
+  if (user) {
+    console.log("Auth data received from /api/auth/user:", user);
+    console.log("Current user object:", currentUser);
+    console.log("IsAuthenticated status:", isAuthenticated);
   }
   
   return {
-    user: user?.user || null,
+    user: currentUser, // This should be the user object from your database
     isLoading, 
     error,
     refreshAuth,
     login,
+    logout, // Added logout
     isAuthenticated,
   };
 }
